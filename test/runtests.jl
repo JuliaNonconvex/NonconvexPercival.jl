@@ -7,7 +7,7 @@ alg = AugLag()
 
 @testset "Simple constraints" begin
     m = Model(f)
-    addvar!(m, [0.0, 0.0], [10.0, 10.0])
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
     add_ineq_constraint!(m, x -> g(x, 2, 0))
     add_ineq_constraint!(m, x -> g(x, -1, 1))
     for first_order in (true, false)
@@ -20,7 +20,7 @@ end
 
 @testset "Equality constraints" begin
     m = Model(f)
-    addvar!(m, [0.0, 0.0], [10.0, 10.0])
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
     add_ineq_constraint!(m, x -> g(x, 2, 0))
     add_ineq_constraint!(m, x -> g(x, -1, 1))
     add_eq_constraint!(m, x -> sum(x) - 1/3 - 8/27)
@@ -35,7 +35,7 @@ end
 @testset "Equality constraints BigFloat" begin
     T = BigFloat
     m = Model(f)
-    addvar!(m, T.([0.0, 0.0]), T.([10.0, 10.0]))
+    addvar!(m, T.([1e-4, 1e-4]), T.([10.0, 10.0]))
     add_ineq_constraint!(m, x -> g(x, T(2), T(0)))
     add_ineq_constraint!(m, x -> g(x, T(-1), T(1)))
     add_eq_constraint!(m, x -> sum(x) - T(1/3) - T(8/27))
@@ -51,7 +51,7 @@ end
 
 @testset "Block constraints" begin
     m = Model(f)
-    addvar!(m, [0.0, 0.0], [10.0, 10.0])
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
     add_ineq_constraint!(m, FunctionWrapper(x -> [g(x, 2, 0), g(x, -1, 1)], 2))
 
     for first_order in (true, false)
@@ -65,7 +65,7 @@ end
 @testset "Infinite bounds" begin
     @testset "Infinite upper bound" begin
         m = Model(f)
-        addvar!(m, [0.0, 0.0], [Inf, Inf])
+        addvar!(m, [1e-4, 1e-4], [Inf, Inf])
         add_ineq_constraint!(m, x -> g(x, 2, 0))
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 

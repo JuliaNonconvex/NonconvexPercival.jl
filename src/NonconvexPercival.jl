@@ -73,7 +73,7 @@ function _percival(nlp;
     modifier = m -> begin
         op = NLPModelsModifiers.LinearOperators.LBFGSOperator(T, m.meta.nvar; mem = memory)
         return NLPModelsModifiers.LBFGSModel(m.meta, m, op)
-    end
+    end  
     _kwargs = (
         max_iter = max_iter, max_time = max_time,
         max_eval = max_eval, atol = atol, rtol = rtol,
@@ -162,7 +162,41 @@ function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
     end
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
-    return ADNLPModels.ADNLPModel(obj, x0, xlb, xub, c, lcon, ucon, adbackend = ADNLPModels.ZygoteAD())
+    nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon)
+    return nlp
+end
+
+function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where {S}
+    T = eltype(S)
+    y0 = fill!(similar(lcon), zero(T))
+    name::String = "Generic"
+    lin::AbstractVector{<:Integer} = Int[]
+    backend = ADNLPModels.ZygoteAD(0, 0)
+    AD = typeof(backend)
+    minimize::Bool = true
+    nvar = length(x0)
+    ncon = length(lcon)
+    
+    nnzh = nvar * (nvar + 1) / 2
+    nnzj = nvar * ncon
+    meta = ADNLPModels.NLPModelMeta{T, S}(
+        nvar,
+        x0 = x0,
+        lvar = lvar,
+        uvar = uvar,
+        ncon = ncon,
+        y0 = y0,
+        lcon = lcon,
+        ucon = ucon,
+        nnzj = nnzj,
+        nnzh = nnzh,
+        lin = lin,
+        minimize = minimize,
+        islp = false,
+        name = name,
+    )
+    adbackend = AD(nvar, f, ncon; x0 = x0)
+    return ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), adbackend, f, c)
 end
 
 end
