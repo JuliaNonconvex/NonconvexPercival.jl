@@ -63,7 +63,7 @@ end
 function _percival(nlp;
     T = eltype(nlp.meta.x0),
     μ::Real = convert(T, 10),
-    max_iter::Int = 1000, max_time::Real = convert(T, Inf),
+    max_iter::Int = 1000, max_time::Real = Inf,
     max_eval::Int = 100000, atol::Real = convert(T, 1e-6),
     rtol::Real = convert(T, 1e-6), ctol::Real = convert(T, 1e-6),
     first_order = true, memory = 5,
