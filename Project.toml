@@ -13,8 +13,8 @@ Percival = "01435c0c-c90d-11e9-3788-63660f8fbccc"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
-ADNLPModels = "0.3"
-NLPModelsModifiers = "0.5"
+ADNLPModels = "0.4"
+NLPModelsModifiers = "0.6"
 NonconvexCore = "1"
 Parameters = "0.12"
 Percival = "0.5"

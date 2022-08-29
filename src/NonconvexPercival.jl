@@ -171,12 +171,19 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
     y0 = fill!(similar(lcon), zero(T))
     name::String = "Generic"
     lin::AbstractVector{<:Integer} = Int[]
-    backend = ADNLPModels.ZygoteAD(0, 0)
-    AD = typeof(backend)
     minimize::Bool = true
     nvar = length(x0)
     ncon = length(lcon)
-    
+    adbackend = ADNLPModels.ADModelBackend(
+        nvar, f, ncon;
+        gradient_backend = ADNLPModels.ZygoteADGradient,
+        hprod_backend = ADNLPModels.ForwardDiffADHvprod,
+        jprod_backend = ADNLPModels.ZygoteADJprod,
+        jtprod_backend = ADNLPModels.ZygoteADJtprod,
+        jacobian_backend = ADNLPModels.ZygoteADJacobian,
+        hessian_backend = ADNLPModels.ZygoteADHessian,
+        ghjvprod_backend = ADNLPModels.ForwardDiffADGHjvprod,
+    )
     nnzh = nvar * (nvar + 1) / 2
     nnzj = nvar * ncon
     meta = ADNLPModels.NLPModelMeta{T, S}(
@@ -195,7 +202,6 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
         islp = false,
         name = name,
     )
-    adbackend = AD(nvar, f, ncon; x0 = x0)
     return ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), adbackend, f, c)
 end
 
