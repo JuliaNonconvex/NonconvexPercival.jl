@@ -12,7 +12,7 @@ import NonconvexCore: Workspace, reset!, optimize!
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
-struct PercivalOptions{T <: NamedTuple}
+struct PercivalOptions{T<:NamedTuple}
     nt::T
 end
 function PercivalOptions(; first_order = true, memory = 5, kwargs...)
@@ -25,7 +25,13 @@ function PercivalOptions(; first_order = true, memory = 5, kwargs...)
 end
 const AugLagOptions = PercivalOptions
 
-mutable struct PercivalWorkspace{TM <: VecModel, TP <: Percival.NLPModels.AbstractNLPModel, TX <: AbstractVector, TO <: PercivalOptions, TC <: Base.RefValue{Int}} <: Workspace
+mutable struct PercivalWorkspace{
+    TM<:VecModel,
+    TP<:Percival.NLPModels.AbstractNLPModel,
+    TX<:AbstractVector,
+    TO<:PercivalOptions,
+    TC<:Base.RefValue{Int},
+} <: Workspace
     model::TM
     problem::TP
     x0::TX
@@ -41,7 +47,7 @@ function PercivalWorkspace(
     problem, counter = get_percival_problem(model, copy(x0))
     return PercivalWorkspace(model, problem, copy(x0), options, counter)
 end
-struct PercivalResult{TM1, TM2, TP, TR, TF} <: AbstractResult
+struct PercivalResult{TM1,TM2,TP,TR,TF} <: AbstractResult
     minimizer::TM1
     minimum::TM2
     problem::TP
