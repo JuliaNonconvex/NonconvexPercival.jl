@@ -15,7 +15,7 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 ADNLPModels = "0.4"
-LinearOperators = "< 2.7"
+LinearOperators = "~2.6"
 NLPModelsModifiers = "0.6"
 NonconvexCore = "1"
 Parameters = "0.12"
