@@ -5,15 +5,15 @@ export PercivalAlg, PercivalOptions, AugLag, AugLagOptions
 import Percival, NLPModelsModifiers, ADNLPModels
 using Reexport, Parameters
 @reexport using NonconvexCore
-using NonconvexCore: @params, VecModel, AbstractOptimizer
+using NonconvexCore: VecModel, AbstractOptimizer
 using NonconvexCore: AbstractResult, CountingFunction, getnconstraints
 import NonconvexCore: Workspace, reset!, optimize!
 
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
-@params struct PercivalOptions
-    nt::NamedTuple
+struct PercivalOptions{T <: NamedTuple}
+    nt::T
 end
 function PercivalOptions(; first_order = true, memory = 5, kwargs...)
     return PercivalOptions((;
@@ -25,12 +25,12 @@ function PercivalOptions(; first_order = true, memory = 5, kwargs...)
 end
 const AugLagOptions = PercivalOptions
 
-@params mutable struct PercivalWorkspace <: Workspace
-    model::VecModel
-    problem::Percival.NLPModels.AbstractNLPModel
-    x0::AbstractVector
-    options::PercivalOptions
-    counter::Base.RefValue{Int}
+mutable struct PercivalWorkspace{TM <: VecModel, TP <: Percival.NLPModels.AbstractNLPModel, TX <: AbstractVector, TO <: PercivalOptions, TC <: Base.RefValue{Int}} <: Workspace
+    model::TM
+    problem::TP
+    x0::TX
+    options::TO
+    counter::TC
 end
 function PercivalWorkspace(
     model::VecModel,
@@ -41,12 +41,12 @@ function PercivalWorkspace(
     problem, counter = get_percival_problem(model, copy(x0))
     return PercivalWorkspace(model, problem, copy(x0), options, counter)
 end
-@params struct PercivalResult <: AbstractResult
-    minimizer::Any
-    minimum::Any
-    problem::Any
-    result::Any
-    fcalls::Any
+struct PercivalResult{TM1, TM2, TP, TR, TF} <: AbstractResult
+    minimizer::TM1
+    minimum::TM2
+    problem::TP
+    result::TR
+    fcalls::TF
 end
 const AugLagWorkspace = PercivalWorkspace
 
@@ -89,7 +89,7 @@ function _percival(
             op = NLPModelsModifiers.LinearOperators.LBFGSOperator(T, m.meta.nvar; mem = memory)
             return NLPModelsModifiers.LBFGSModel(m.meta, m, op)
         end
-    _kwargs = (
+    _kwargs1 = (
         max_iter = max_iter,
         max_time = max_time,
         max_eval = max_eval,
@@ -97,15 +97,16 @@ function _percival(
         rtol = rtol,
         subsolver_logger = subsolver_logger,
         subproblem_modifier = first_order ? modifier : identity,
-        subsolver_max_eval = subsolver_max_eval,
         subsolver_kwargs = Dict(:max_cgiter => max_cgiter),
     )
     if Percival.unconstrained(nlp) || Percival.bound_constrained(nlp)
-        return Percival.percival(Val(:tron), nlp; _kwargs...)
+        return Percival.percival(Val(:tron), nlp; _kwargs1...)
     elseif Percival.equality_constrained(nlp)
-        return Percival.percival(Val(:equ), nlp; inity = inity, _kwargs...)
+        _kwargs2 = merge(_kwargs1, (; subsolver_max_eval = subsolver_max_eval))
+        return Percival.percival(Val(:equ), nlp; inity = inity, _kwargs2...)
     else # has inequalities
-        return Percival.percival(Val(:ineq), nlp; inity = inity, _kwargs...)
+        _kwargs3 = merge(_kwargs1, (; subsolver_max_eval = subsolver_max_eval))
+        return Percival.percival(Val(:ineq), nlp; inity = inity, _kwargs3...)
     end
 end
 

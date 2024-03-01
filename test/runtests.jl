@@ -1,4 +1,4 @@
-using NonconvexPercival, LinearAlgebra, Test
+using NonconvexPercival, LinearAlgebra, Test, StableRNGs
 
 f(x::AbstractVector) = sqrt(x[2])
 g(x::AbstractVector, a, b) = (a * x[1] + b)^3 - x[2]
@@ -104,4 +104,23 @@ end
         end
     end
     =#
+end
+
+@testset "Box constrained" begin
+    component_pdf(x::Real, mu::Real, tau::Real) =
+        tau * exp(-tau^2 * (x - mu)^2 / 2) / sqrt(2π)
+    data = randn(StableRNG(123), 40)
+    loss(params::AbstractVector) = -sum(log,
+        (1 - params[1]) * component_pdf(x, 0, 1)
+        +    params[1]  * component_pdf(x, params[2], params[3])
+        for x in data
+    )
+    model = Model(loss)
+    addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init=[0.1, 0, 1])
+    res = optimize(model, AugLag(), [0.1, -3, 1], options=AugLagOptions())
+    @test res.minimizer == [
+        0.0,
+        -2.3140286844577305,
+        0.06904076799516767,
+    ]
 end
