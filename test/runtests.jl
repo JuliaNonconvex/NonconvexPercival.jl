@@ -121,3 +121,4 @@ end
     res = optimize(model, AugLag(), [0.1, -3, 1], options = AugLagOptions())
     @test res.minimizer == [0.0, -2.3140286844577305, 0.06904076799516767]
 end
+
