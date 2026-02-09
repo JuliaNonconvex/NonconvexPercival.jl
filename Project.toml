@@ -1,7 +1,7 @@
 name = "NonconvexPercival"
 uuid = "4296f080-e499-44ba-a02c-ae40015c44d5"
 authors = ["Mohamed Tarek <mohamed82008@gmail.com> and contributors"]
-version = "0.1.4"
+version = "0.1.5"
 
 [deps]
 ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
@@ -15,10 +15,11 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 
 [compat]
 ADNLPModels = "0.4"
+LinearAlgebra = "1.12.0"
 LinearOperators = "~2.6"
 NLPModelsModifiers = "0.6"
-NonconvexCore = "1"
-Parameters = "0.12"
+NonconvexCore = "1.5"
+Parameters = "0.12, 0.13"
 Percival = "0.5"
 Reexport = "1"
 julia = "1"
