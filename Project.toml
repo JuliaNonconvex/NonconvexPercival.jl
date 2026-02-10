@@ -1,6 +1,6 @@
 name = "NonconvexPercival"
 uuid = "4296f080-e499-44ba-a02c-ae40015c44d5"
-authors = ["Mohamed Tarek <mohamed82008@gmail.com> and contributors"]
+authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
 version = "0.1.5"
 
 [deps]
