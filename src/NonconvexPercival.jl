@@ -93,7 +93,7 @@ function _percival(
     modifier =
         m -> begin
             op = NLPModelsModifiers.LinearOperators.LBFGSOperator(T, m.meta.nvar; mem = memory)
-            return NLPModelsModifiers.LBFGSModel(m.meta, m, op)
+            return NLPModelsModifiers.LBFGSModel(m.meta, m, op, similar(m.meta.x0))
         end
     _kwargs1 = (
         max_iter = max_iter,
@@ -101,18 +101,44 @@ function _percival(
         max_eval = max_eval,
         atol = atol,
         rtol = rtol,
-        subsolver_logger = subsolver_logger,
         subproblem_modifier = first_order ? modifier : identity,
-        subsolver_kwargs = Dict(:max_cgiter => max_cgiter),
     )
+    # Percival 0.7 dropped the subsolver logger; only an integer verbosity
+    # flag is forwarded to the subsolver.
+    _verbose = subsolver_logger isa Percival.NullLogger ? 0 : 1
+    if inity !== nothing
+        # Percival 0.7 dropped the initial-multiplier vector argument; write
+        # the user-provided multipliers into the model's y0 instead.
+        nlp.meta.y0 .= inity
+    end
     if Percival.unconstrained(nlp) || Percival.bound_constrained(nlp)
-        return Percival.percival(Val(:tron), nlp; _kwargs1...)
+        return Percival.percival(
+            Val(:tron),
+            nlp;
+            _kwargs1...,
+            max_cgiter = max_cgiter,
+            verbose = _verbose,
+        )
     elseif Percival.equality_constrained(nlp)
-        _kwargs2 = merge(_kwargs1, (; subsolver_max_eval = subsolver_max_eval))
-        return Percival.percival(Val(:equ), nlp; inity = inity, _kwargs2...)
+        _kwargs2 = merge(
+            _kwargs1,
+            (;
+                subsolver_max_eval = subsolver_max_eval,
+                subsolver_max_cgiter = max_cgiter,
+                subsolver_verbose = _verbose,
+            ),
+        )
+        return Percival.percival(Val(:equ), nlp; _kwargs2...)
     else # has inequalities
-        _kwargs3 = merge(_kwargs1, (; subsolver_max_eval = subsolver_max_eval))
-        return Percival.percival(Val(:ineq), nlp; inity = inity, _kwargs3...)
+        _kwargs3 = merge(
+            _kwargs1,
+            (;
+                subsolver_max_eval = subsolver_max_eval,
+                subsolver_max_cgiter = max_cgiter,
+                subsolver_verbose = _verbose,
+            ),
+        )
+        return Percival.percival(Val(:ineq), nlp; _kwargs3...)
     end
 end
 
@@ -187,10 +213,13 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
     minimize::Bool = true
     nvar = length(x0)
     ncon = length(lcon)
+    c! = (cx, x) -> (cx .= c(x); cx)
     adbackend = ADNLPModels.ADModelBackend(
         nvar,
         f,
-        ncon;
+        ncon,
+        c!;
+        x0 = x0,
         gradient_backend = ADNLPModels.ZygoteADGradient,
         hprod_backend = ADNLPModels.ForwardDiffADHvprod,
         jprod_backend = ADNLPModels.ZygoteADJprod,
@@ -217,7 +246,7 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
         islp = false,
         name = name,
     )
-    return ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), adbackend, f, c)
+    return ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), adbackend, f, c!)
 end
 
 end
