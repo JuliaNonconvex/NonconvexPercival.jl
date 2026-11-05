@@ -6,7 +6,7 @@ import Percival, NLPModelsModifiers, ADNLPModels
 using Reexport, Parameters
 @reexport using NonconvexCore
 using NonconvexCore: VecModel, AbstractOptimizer
-using NonconvexCore: AbstractResult, CountingFunction, getnconstraints
+using NonconvexCore: AbstractResult, CountingFunction, getnineqconstraints, getneqconstraints
 import NonconvexCore: Workspace, reset!, optimize!
 
 struct PercivalAlg <: AbstractOptimizer end
@@ -59,7 +59,7 @@ const AugLagWorkspace = PercivalWorkspace
 function optimize!(workspace::PercivalWorkspace)
     @unpack problem, options, x0, counter = workspace
     counter[] = 0
-    m = getnconstraints(workspace.model)
+    m = getnineqconstraints(workspace.model) + getneqconstraints(workspace.model)
     problem.meta.x0 .= x0
     result = _percival(problem; options.nt..., inity = options.nt.inity(eltype(x0), m))
     result.solution = result.solution[1:length(x0)]
@@ -90,11 +90,19 @@ function _percival(
     subsolver_max_eval = 200,
     kwargs...,
 )
-    modifier =
-        m -> begin
-            op = NLPModelsModifiers.LinearOperators.LBFGSOperator(T, m.meta.nvar; mem = memory)
-            return NLPModelsModifiers.LBFGSModel(m.meta, m, op, similar(m.meta.x0))
+    # Percival applies `subproblem_modifier` on every outer augmented Lagrangian
+    # iteration, and for inequality-constrained problems it modifies a slack
+    # model with more variables than the original problem. Reuse the L-BFGS
+    # operator (and its curvature memory) per problem size instead of recreating
+    # it on every call.
+    op_cache = IdDict{Int,Any}()
+    modifier = m -> begin
+        nvar = m.meta.nvar
+        op = get!(op_cache, nvar) do
+            NLPModelsModifiers.LinearOperators.LBFGSOperator(T, nvar; mem = memory)
         end
+        return NLPModelsModifiers.LBFGSModel(m.meta, m, op, similar(m.meta.x0))
+    end
     _kwargs1 = (
         max_iter = max_iter,
         max_time = max_time,
@@ -123,6 +131,8 @@ function _percival(
         _kwargs2 = merge(
             _kwargs1,
             (;
+                μ = μ,
+                ctol = ctol,
                 subsolver_max_eval = subsolver_max_eval,
                 subsolver_max_cgiter = max_cgiter,
                 subsolver_verbose = _verbose,
@@ -133,6 +143,8 @@ function _percival(
         _kwargs3 = merge(
             _kwargs1,
             (;
+                μ = μ,
+                ctol = ctol,
                 subsolver_max_eval = subsolver_max_eval,
                 subsolver_max_cgiter = max_cgiter,
                 subsolver_verbose = _verbose,

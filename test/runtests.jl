@@ -1,4 +1,5 @@
 using NonconvexPercival, LinearAlgebra, Test, StableRNGs
+import NLPModels
 
 f(x::AbstractVector) = sqrt(x[2])
 g(x::AbstractVector, a, b) = (a * x[1] + b)^3 - x[2]
@@ -120,4 +121,22 @@ end
     addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init = [0.1, 0, 1])
     res = optimize(model, AugLag(), [0.1, -3, 1], options = AugLagOptions())
     @test res.minimizer == [0.0, -2.3140286844577305, 0.06904076799516767]
+end
+
+@testset "No second derivatives in first-order mode" begin
+    m = Model(f)
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
+    add_ineq_constraint!(m, x -> g(x, 2, 0))
+    add_ineq_constraint!(m, x -> g(x, -1, 1))
+    r = optimize(m, alg, [1.234, 2.345], options = AugLagOptions(first_order = true))
+    # The L-BFGS subproblem modifier never asks the base model for Hessians or
+    # Hessian-vector products.
+    @test NLPModels.neval_hess(r.problem) == 0
+    @test NLPModels.neval_hprod(r.problem) == 0
+    @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+
+    r2 = optimize(m, alg, [1.234, 2.345], options = AugLagOptions(first_order = false))
+    # Second-order mode must actually attempt second derivatives.
+    @test NLPModels.neval_hess(r2.problem) + NLPModels.neval_hprod(r2.problem) > 0
+    @test abs(r2.minimum - sqrt(8 / 27)) < 1e-6
 end
