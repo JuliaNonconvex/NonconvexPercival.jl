@@ -232,12 +232,12 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
         ncon,
         c!;
         x0 = x0,
-        gradient_backend = ADNLPModels.ZygoteADGradient,
+        gradient_backend = ADNLPModels.ReverseDiffADGradient,
         hprod_backend = ADNLPModels.ForwardDiffADHvprod,
-        jprod_backend = ADNLPModels.ZygoteADJprod,
-        jtprod_backend = ADNLPModels.ZygoteADJtprod,
-        jacobian_backend = ADNLPModels.ZygoteADJacobian,
-        hessian_backend = ADNLPModels.ZygoteADHessian,
+        jprod_backend = ADNLPModels.ReverseDiffADJprod,
+        jtprod_backend = ADNLPModels.ReverseDiffADJtprod,
+        jacobian_backend = ADNLPModels.ForwardDiffADJacobian,
+        hessian_backend = ADNLPModels.SparseReverseADHessian,
         ghjvprod_backend = ADNLPModels.ForwardDiffADGHjvprod,
     )
     nnzh = nvar * (nvar + 1) / 2
