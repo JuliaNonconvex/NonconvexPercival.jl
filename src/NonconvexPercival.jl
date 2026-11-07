@@ -13,6 +13,14 @@ import NonconvexCore: Workspace, reset!, optimize!
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
+NonconvexCore.solver_capabilities(::PercivalAlg) = ConstraintCapabilities(
+    eq = true,
+    ineq = true,
+    sd = false,
+    box = true,
+    integer = false,
+)
+
 struct PercivalOptions{T<:NamedTuple}
     nt::T
 end

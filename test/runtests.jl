@@ -180,3 +180,13 @@ end
     @test norm(iterates[end].x - r.minimizer) < 1e-4
     @test abs(r.minimum) < 1e-6
 end
+
+@testset "solver capabilities" begin
+    caps = solver_capabilities(PercivalAlg())
+    @test caps isa ConstraintCapabilities
+    @test caps.eq === true
+    @test caps.ineq === true
+    @test caps.sd === false
+    @test caps.box === true
+    @test caps.integer === false
+end
