@@ -140,3 +140,43 @@ end
     @test NLPModels.neval_hess(r2.problem) + NLPModels.neval_hprod(r2.problem) > 0
     @test abs(r2.minimum - sqrt(8 / 27)) < 1e-6
 end
+
+@testset "Iteration callback" begin
+    m = Model(f)
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
+    add_ineq_constraint!(m, x -> g(x, 2, 0))
+    add_ineq_constraint!(m, x -> g(x, -1, 1))
+
+    iterates = Any[]
+    r = optimize(
+        m,
+        alg,
+        [1.234, 2.345],
+        options = AugLagOptions(),
+        callback = s -> push!(iterates, (x = copy(s.x), f = s.f)),
+    )
+    @test length(iterates) > 0
+    @test all(s -> isfinite(s.f), iterates)
+    # The callback records the iterate sequence ending at the solution.
+    @test norm(iterates[end].x - r.minimizer) < 1e-3
+    @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+end
+
+@testset "Iteration callback on an unconstrained problem" begin
+    # The unconstrained path solves with TRON directly; the iterate comes
+    # from the subproblem solver's x field.
+    m = Model(x -> sum((x .- 1.0) .^ 2))
+    addvar!(m, [-5.0, -5.0], [5.0, 5.0])
+    iterates = Any[]
+    r = optimize(
+        m,
+        alg,
+        [0.0, 0.0],
+        options = AugLagOptions(),
+        callback = s -> push!(iterates, (x = copy(s.x), f = s.f)),
+    )
+    @test length(iterates) > 0
+    @test all(s -> isfinite(s.f), iterates)
+    @test norm(iterates[end].x - r.minimizer) < 1e-4
+    @test abs(r.minimum) < 1e-6
+end

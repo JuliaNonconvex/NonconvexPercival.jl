@@ -7,6 +7,7 @@ using Reexport, Parameters
 @reexport using NonconvexCore
 using NonconvexCore: VecModel, AbstractOptimizer
 using NonconvexCore: AbstractResult, CountingFunction, getnineqconstraints, getneqconstraints
+using NonconvexCore: Solution, ConvergenceState, NoCallback
 import NonconvexCore: Workspace, reset!, optimize!
 
 struct PercivalAlg <: AbstractOptimizer end
@@ -31,21 +32,24 @@ mutable struct PercivalWorkspace{
     TX<:AbstractVector,
     TO<:PercivalOptions,
     TC<:Base.RefValue{Int},
+    TF<:Function,
 } <: Workspace
     model::TM
     problem::TP
     x0::TX
     options::TO
     counter::TC
+    callback::TF
 end
 function PercivalWorkspace(
     model::VecModel,
     x0::AbstractVector = getinit(model);
     options = PercivalOptions(),
+    callback::Function = NoCallback(),
     kwargs...,
 )
     problem, counter = get_percival_problem(model, copy(x0))
-    return PercivalWorkspace(model, problem, copy(x0), options, counter)
+    return PercivalWorkspace(model, problem, copy(x0), options, counter, callback)
 end
 struct PercivalResult{TM1,TM2,TP,TR,TF} <: AbstractResult
     minimizer::TM1
@@ -57,11 +61,16 @@ end
 const AugLagWorkspace = PercivalWorkspace
 
 function optimize!(workspace::PercivalWorkspace)
-    @unpack problem, options, x0, counter = workspace
+    @unpack problem, options, x0, counter, callback = workspace
     counter[] = 0
     m = getnineqconstraints(workspace.model) + getneqconstraints(workspace.model)
     problem.meta.x0 .= x0
-    result = _percival(problem; options.nt..., inity = options.nt.inity(eltype(x0), m))
+    result = _percival(
+        problem;
+        options.nt...,
+        inity = options.nt.inity(eltype(x0), m),
+        callback = percival_callback(callback, length(x0)),
+    )
     result.solution = result.solution[1:length(x0)]
     return PercivalResult(
         copy(result.solution),
@@ -70,6 +79,51 @@ function optimize!(workspace::PercivalWorkspace)
         result,
         counter[],
     )
+end
+
+"""
+    percival_callback(callback)
+
+Adapts the Nonconvex `callback` to Percival's `callback(nlp, solver, stats)`
+signature. The Nonconvex callback receives a `Solution` carrying the current
+iterate, the objective value, and the primal/dual feasibility in the
+convergence state.
+"""
+percival_callback(::NoCallback) = (args...) -> nothing
+function percival_callback(callback::Function, nvars::Int)
+    return (nlp, solver, stats) -> begin
+        # Percival's own stats never receive the iterate. On the augmented
+        # Lagrangian paths the subproblem solver's stats hold the latest
+        # subproblem solution (which includes slack variables for
+        # inequality-constrained problems); on the unconstrained path the
+        # iterate lives in the subproblem solver itself. Keep only the
+        # original variables.
+        x_all = if hasproperty(solver, :sub_stats) &&
+            length(solver.sub_stats.solution) >= nvars
+            solver.sub_stats.solution
+        elseif hasproperty(solver, :x) && length(solver.x) >= nvars
+            solver.x
+        else
+            stats.solution
+        end
+        length(x_all) >= nvars || return
+        x = x_all[1:nvars]
+        convstate = ConvergenceState{eltype(x)}()
+        convstate.kkt_residual = stats.dual_feas
+        convstate.infeas = stats.primal_feas
+        solution = Solution(
+            copy(x),
+            copy(x),
+            Float64[],
+            stats.objective,
+            stats.objective,
+            zeros(length(x)),
+            Float64[],
+            zeros(0, length(x)),
+            convstate,
+        )
+        callback(solution)
+    end
 end
 
 function _percival(
@@ -88,6 +142,7 @@ function _percival(
     inity = nothing,
     max_cgiter = 100,
     subsolver_max_eval = 200,
+    callback = (args...) -> nothing,
     kwargs...,
 )
     # Percival applies `subproblem_modifier` on every outer augmented Lagrangian
@@ -110,6 +165,7 @@ function _percival(
         atol = atol,
         rtol = rtol,
         subproblem_modifier = first_order ? modifier : identity,
+        callback = callback,
     )
     # Percival 0.7 dropped the subsolver logger; only an integer verbosity
     # flag is forwarded to the subsolver.
