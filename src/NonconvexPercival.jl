@@ -19,6 +19,7 @@ NonconvexCore.solver_capabilities(::PercivalAlg) = ConstraintCapabilities(
     sd = false,
     box = true,
     integer = false,
+    infinite_bounds = true,
 )
 
 struct PercivalOptions{T<:NamedTuple}
