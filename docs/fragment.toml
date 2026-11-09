@@ -1,0 +1,11 @@
+name = "Percival"
+modules = ["NonconvexPercival"]
+doctest_setup = "using NonconvexPercival"
+
+[[pages]]
+title = "Percival"
+file = "index.md"
+
+[[pages]]
+title = "Docstrings"
+file = "docstrings.md"
