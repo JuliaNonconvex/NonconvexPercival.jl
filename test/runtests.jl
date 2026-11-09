@@ -1,5 +1,5 @@
 using NonconvexPercival, LinearAlgebra, Test, StableRNGs
-import NLPModels
+using NLPModels: NLPModels
 
 f(x::AbstractVector) = sqrt(x[2])
 g(x::AbstractVector, a, b) = (a * x[1] + b)^3 - x[2]
@@ -12,8 +12,8 @@ alg = AugLag()
     add_ineq_constraint!(m, x -> g(x, 2, 0))
     add_ineq_constraint!(m, x -> g(x, -1, 1))
     for first_order in (true, false)
-        options = AugLagOptions(first_order = first_order)
-        r = optimize(m, alg, [1.234, 2.345], options = options)
+        options = AugLagOptions(first_order=first_order)
+        r = optimize(m, alg, [1.234, 2.345], options=options)
         @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
         @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
     end
@@ -26,8 +26,8 @@ end
     add_ineq_constraint!(m, x -> g(x, -1, 1))
     add_eq_constraint!(m, x -> sum(x) - 1 / 3 - 8 / 27)
     for first_order in (true, false)
-        options = AugLagOptions(first_order = first_order)
-        r = optimize(m, alg, [1.234, 2.345], options = options)
+        options = AugLagOptions(first_order=first_order)
+        r = optimize(m, alg, [1.234, 2.345], options=options)
         @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
         @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
     end
@@ -41,8 +41,8 @@ end
     add_ineq_constraint!(m, x -> g(x, T(-1), T(1)))
     add_eq_constraint!(m, x -> sum(x) - T(1 / 3) - T(8 / 27))
     for first_order in (true, false)
-        options = AugLagOptions(first_order = first_order)
-        r = optimize(m, alg, T.([1.234, 2.345]), options = options)
+        options = AugLagOptions(first_order=first_order)
+        r = optimize(m, alg, T.([1.234, 2.345]), options=options)
         @test abs(r.minimum - sqrt(T(8 / 27))) < T(1e-6)
         @test norm(r.minimizer - T.([1 / 3, 8 / 27])) < T(1e-6)
         @test r.minimum isa T
@@ -56,8 +56,8 @@ end
     add_ineq_constraint!(m, FunctionWrapper(x -> [g(x, 2, 0), g(x, -1, 1)], 2))
 
     for first_order in (true, false)
-        options = AugLagOptions(first_order = first_order)
-        r = optimize(m, alg, [1.234, 2.345], options = options)
+        options = AugLagOptions(first_order=first_order)
+        r = optimize(m, alg, [1.234, 2.345], options=options)
         @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
         @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
     end
@@ -71,8 +71,8 @@ end
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 
         for first_order in (true, false)
-            options = AugLagOptions(first_order = first_order)
-            r = optimize(m, alg, [1.234, 2.345], options = options)
+            options = AugLagOptions(first_order=first_order)
+            r = optimize(m, alg, [1.234, 2.345], options=options)
             @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
             @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
@@ -118,8 +118,8 @@ end
             params[1] * component_pdf(x, params[2], params[3]) for x in data
         )
     model = Model(loss)
-    addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init = [0.1, 0, 1])
-    res = optimize(model, AugLag(), [0.1, -3, 1], options = AugLagOptions())
+    addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init=[0.1, 0, 1])
+    res = optimize(model, AugLag(), [0.1, -3, 1], options=AugLagOptions())
     @test res.minimizer == [0.0, -2.3140286844577305, 0.06904076799516767]
 end
 
@@ -128,14 +128,14 @@ end
     addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
     add_ineq_constraint!(m, x -> g(x, 2, 0))
     add_ineq_constraint!(m, x -> g(x, -1, 1))
-    r = optimize(m, alg, [1.234, 2.345], options = AugLagOptions(first_order = true))
+    r = optimize(m, alg, [1.234, 2.345], options=AugLagOptions(first_order=true))
     # The L-BFGS subproblem modifier never asks the base model for Hessians or
     # Hessian-vector products.
     @test NLPModels.neval_hess(r.problem) == 0
     @test NLPModels.neval_hprod(r.problem) == 0
     @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
 
-    r2 = optimize(m, alg, [1.234, 2.345], options = AugLagOptions(first_order = false))
+    r2 = optimize(m, alg, [1.234, 2.345], options=AugLagOptions(first_order=false))
     # Second-order mode must actually attempt second derivatives.
     @test NLPModels.neval_hess(r2.problem) + NLPModels.neval_hprod(r2.problem) > 0
     @test abs(r2.minimum - sqrt(8 / 27)) < 1e-6
@@ -152,8 +152,8 @@ end
         m,
         alg,
         [1.234, 2.345],
-        options = AugLagOptions(),
-        callback = s -> push!(iterates, (x = copy(s.x), f = s.f)),
+        options=AugLagOptions(),
+        callback=s -> push!(iterates, (x=copy(s.x), f=s.f)),
     )
     @test length(iterates) > 0
     @test all(s -> isfinite(s.f), iterates)
@@ -172,11 +172,15 @@ end
         m,
         alg,
         [0.0, 0.0],
-        options = AugLagOptions(),
-        callback = s -> push!(iterates, (x = copy(s.x), f = s.f)),
+        options=AugLagOptions(),
+        callback=s -> push!(iterates, (x=copy(s.x), f=s.f)),
     )
     @test length(iterates) > 0
     @test all(s -> isfinite(s.f), iterates)
     @test norm(iterates[end].x - r.minimizer) < 1e-4
     @test abs(r.minimum) < 1e-6
 end
+
+using Aqua, JET
+Aqua.test_all(NonconvexPercival)
+JET.test_package(NonconvexPercival; target_modules = (NonconvexPercival,))
