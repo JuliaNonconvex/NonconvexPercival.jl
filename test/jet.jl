@@ -1,4 +1,4 @@
-using JET, NonconvexPercival
-
-# Run JET analysis on the package.
-JET.test_package(NonconvexPercival; target_modules=(NonconvexPercival,))
+@testitem "JET" begin
+    using JET, NonconvexPercival
+    JET.test_package(NonconvexPercival; target_modules=(NonconvexPercival,))
+end

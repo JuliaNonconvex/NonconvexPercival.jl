@@ -5,6 +5,7 @@ export PercivalAlg, PercivalOptions, AugLag, AugLagOptions
 using Percival: Percival
 using NLPModelsModifiers: NLPModelsModifiers
 using ADNLPModels: ADNLPModels
+using NLPModels: NLPModels
 using Reexport, Parameters
 @reexport using NonconvexCore
 using NonconvexCore: VecModel, AbstractOptimizer
@@ -59,7 +60,7 @@ mutable struct PercivalWorkspace{
 end
 function PercivalWorkspace(
     model::VecModel,
-    x0::AbstractVector=getinit(model);
+    x0::AbstractVector=NonconvexCore.getinit(model);
     options=PercivalOptions(),
     callback::Function=NoCallback(),
     kwargs...,
@@ -81,10 +82,12 @@ function optimize!(workspace::PercivalWorkspace)
     counter[] = 0
     m = getnineqconstraints(workspace.model) + getneqconstraints(workspace.model)
     problem.meta.x0 .= x0
+    inity_values = options.nt.inity(eltype(x0), m)
+    inity_values::Union{Nothing,AbstractVector} = inity_values
     result = _percival(
         problem;
         options.nt...,
-        inity=options.nt.inity(eltype(x0), m),
+        inity=inity_values,
         callback=percival_callback(callback, length(x0)),
     )
     result.solution = result.solution[1:length(x0)]
@@ -139,7 +142,7 @@ function percival_callback(callback::Function, nvars::Int)
 end
 
 function _percival(
-    nlp;
+    nlp::NLPModels.AbstractNLPModel;
     T=eltype(nlp.meta.x0),
     μ::Real=convert(T, 10),
     max_iter::Int=1000,
@@ -151,7 +154,7 @@ function _percival(
     first_order=true,
     memory=5,
     subsolver_logger::Percival.AbstractLogger=Percival.NullLogger(),
-    inity=nothing,
+    inity::Union{Nothing,AbstractVector}=nothing,
     max_cgiter=100,
     subsolver_max_eval=200,
     callback=(args...) -> nothing,
@@ -242,7 +245,9 @@ function get_percival_problem(model::VecModel, x0::AbstractVector)
     else
         model.ineq_constraints
     end
-    obj = CountingFunction(getobjective(model))
+    obj = getobjective(model)
+    obj === nothing && throw(ArgumentError("The model has no objective."))
+    obj = CountingFunction(obj)
     return get_percival_problem(obj, ineq, eq, x0, getmin(model), getmax(model)),
     obj.counter
 end
@@ -279,6 +284,7 @@ function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
     nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon)
+    nlp::NLPModels.AbstractNLPModel = nlp
     return nlp
 end
 

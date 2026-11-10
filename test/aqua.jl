@@ -1,4 +1,4 @@
-using Aqua, NonconvexPercival
-
-# All Aqua quality gates are enabled. No tests are skipped.
-Aqua.test_all(NonconvexPercival)
+@testitem "Aqua" begin
+    using Aqua, NonconvexPercival
+    Aqua.test_all(NonconvexPercival)
+end
