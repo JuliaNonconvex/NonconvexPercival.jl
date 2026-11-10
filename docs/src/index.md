@@ -1,5 +1,7 @@
 # Augmented Lagrangian algorithm in pure Julia
 
+![JuliaNonconvex logo](https://raw.githubusercontent.com/JuliaNonconvex/NonconvexPercival.jl/master/docs/src/assets/logo.png)
+
 ## Description
 
 [Percival.jl](https://github.com/JuliaSmoothOptimizers/Percival.jl) is a pure Julia implementation of the augmented Lagrangian algorithm. Both first and second order versions of the algorithm are available.
