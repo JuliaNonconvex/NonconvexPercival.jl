@@ -6,9 +6,14 @@
     # to keep the test process intact for the remaining testitems.
     julia = joinpath(Sys.BINDIR, Base.julia_exename())
     project = dirname(Base.active_project())
-    code = "using JET, NonconvexPercival\n" *
-           "JET.test_package(NonconvexPercival; target_modules=(NonconvexPercival,))"
+    code =
+        "using JET, NonconvexPercival\n" *
+        "JET.test_package(NonconvexPercival; target_modules=(NonconvexPercival,))"
     @test success(
-        pipeline(`$julia --startup-file=no --project=$project -e $code`; stdout=devnull, stderr=devnull)
+        pipeline(
+            `$julia --startup-file=no --project=$project -e $code`;
+            stdout=devnull,
+            stderr=devnull,
+        ),
     )
 end
