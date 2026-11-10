@@ -1,0 +1,4 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocumenterFragments = "862d714e-9826-4bb1-afc7-f2d363bba08c"
+NonconvexPercival = "4296f080-e499-44ba-a02c-ae40015c44d5"

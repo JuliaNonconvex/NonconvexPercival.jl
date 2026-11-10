@@ -2,26 +2,43 @@ module NonconvexPercival
 
 export PercivalAlg, PercivalOptions, AugLag, AugLagOptions
 
-import Percival, NLPModelsModifiers, ADNLPModels
+using Percival: Percival
+using NLPModelsModifiers: NLPModelsModifiers
+using ADNLPModels: ADNLPModels
+using NLPModels: NLPModels
 using Reexport, Parameters
 @reexport using NonconvexCore
 using NonconvexCore: VecModel, AbstractOptimizer
-using NonconvexCore: AbstractResult, CountingFunction, getnineqconstraints, getneqconstraints
+using NonconvexCore:
+    AbstractResult, CountingFunction, getnineqconstraints, getneqconstraints
 using NonconvexCore: Solution, ConvergenceState, NoCallback
 import NonconvexCore: Workspace, reset!, optimize!
 
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
+function NonconvexCore.solver_capabilities(::PercivalAlg)
+    return ConstraintCapabilities(;
+        linear_eq=true,
+        nonlinear_eq=true,
+        linear_ineq=true,
+        nonlinear_ineq=true,
+        linear_sd=false,
+        nonlinear_sd=false,
+        box=true,
+        continuous=true,
+        binary=false,
+        integer=false,
+        infinite_bounds=true,
+    )
+end
+
 struct PercivalOptions{T<:NamedTuple}
     nt::T
 end
-function PercivalOptions(; first_order = true, memory = 5, kwargs...)
+function PercivalOptions(; first_order=true, memory=5, kwargs...)
     return PercivalOptions((;
-        first_order = first_order,
-        memory = memory,
-        inity = ones,
-        kwargs...,
+        first_order=first_order, memory=memory, inity=ones, kwargs...
     ),)
 end
 const AugLagOptions = PercivalOptions
@@ -43,9 +60,9 @@ mutable struct PercivalWorkspace{
 end
 function PercivalWorkspace(
     model::VecModel,
-    x0::AbstractVector = getinit(model);
-    options = PercivalOptions(),
-    callback::Function = NoCallback(),
+    x0::AbstractVector=NonconvexCore.getinit(model);
+    options=PercivalOptions(),
+    callback::Function=NoCallback(),
     kwargs...,
 )
     problem, counter = get_percival_problem(model, copy(x0))
@@ -65,19 +82,17 @@ function optimize!(workspace::PercivalWorkspace)
     counter[] = 0
     m = getnineqconstraints(workspace.model) + getneqconstraints(workspace.model)
     problem.meta.x0 .= x0
+    inity_values = options.nt.inity(eltype(x0), m)
+    inity_values::Union{Nothing,AbstractVector} = inity_values
     result = _percival(
         problem;
         options.nt...,
-        inity = options.nt.inity(eltype(x0), m),
-        callback = percival_callback(callback, length(x0)),
+        inity=inity_values,
+        callback=percival_callback(callback, length(x0)),
     )
     result.solution = result.solution[1:length(x0)]
     return PercivalResult(
-        copy(result.solution),
-        result.objective,
-        problem,
-        result,
-        counter[],
+        copy(result.solution), result.objective, problem, result, counter[]
     )
 end
 
@@ -98,15 +113,15 @@ function percival_callback(callback::Function, nvars::Int)
         # inequality-constrained problems); on the unconstrained path the
         # iterate lives in the subproblem solver itself. Keep only the
         # original variables.
-        x_all = if hasproperty(solver, :sub_stats) &&
-            length(solver.sub_stats.solution) >= nvars
-            solver.sub_stats.solution
-        elseif hasproperty(solver, :x) && length(solver.x) >= nvars
-            solver.x
-        else
-            stats.solution
-        end
-        length(x_all) >= nvars || return
+        x_all =
+            if hasproperty(solver, :sub_stats) && length(solver.sub_stats.solution) >= nvars
+                solver.sub_stats.solution
+            elseif hasproperty(solver, :x) && length(solver.x) >= nvars
+                solver.x
+            else
+                stats.solution
+            end
+        length(x_all) >= nvars || return nothing
         x = x_all[1:nvars]
         convstate = ConvergenceState{eltype(x)}()
         convstate.kkt_residual = stats.dual_feas
@@ -127,22 +142,22 @@ function percival_callback(callback::Function, nvars::Int)
 end
 
 function _percival(
-    nlp;
-    T = eltype(nlp.meta.x0),
-    μ::Real = convert(T, 10),
-    max_iter::Int = 1000,
-    max_time::Real = Inf,
-    max_eval::Int = 100000,
-    atol::Real = convert(T, 1e-6),
-    rtol::Real = convert(T, 1e-6),
-    ctol::Real = convert(T, 1e-6),
-    first_order = true,
-    memory = 5,
-    subsolver_logger::Percival.AbstractLogger = Percival.NullLogger(),
-    inity = nothing,
-    max_cgiter = 100,
-    subsolver_max_eval = 200,
-    callback = (args...) -> nothing,
+    nlp::NLPModels.AbstractNLPModel;
+    T=eltype(nlp.meta.x0),
+    μ::Real=convert(T, 10),
+    max_iter::Int=1000,
+    max_time::Real=Inf,
+    max_eval::Int=100000,
+    atol::Real=convert(T, 1e-6),
+    rtol::Real=convert(T, 1e-6),
+    ctol::Real=convert(T, 1e-6),
+    first_order=true,
+    memory=5,
+    subsolver_logger::Percival.AbstractLogger=Percival.NullLogger(),
+    inity::Union{Nothing,AbstractVector}=nothing,
+    max_cgiter=100,
+    subsolver_max_eval=200,
+    callback=(args...) -> nothing,
     kwargs...,
 )
     # Percival applies `subproblem_modifier` on every outer augmented Lagrangian
@@ -151,21 +166,22 @@ function _percival(
     # operator (and its curvature memory) per problem size instead of recreating
     # it on every call.
     op_cache = IdDict{Int,Any}()
-    modifier = m -> begin
-        nvar = m.meta.nvar
-        op = get!(op_cache, nvar) do
-            NLPModelsModifiers.LinearOperators.LBFGSOperator(T, nvar; mem = memory)
+    modifier =
+        m -> begin
+            nvar = m.meta.nvar
+            op = get!(op_cache, nvar) do
+                return NLPModelsModifiers.LinearOperators.LBFGSOperator(T, nvar; mem=memory)
+            end
+            return NLPModelsModifiers.LBFGSModel(m.meta, m, op, similar(m.meta.x0))
         end
-        return NLPModelsModifiers.LBFGSModel(m.meta, m, op, similar(m.meta.x0))
-    end
     _kwargs1 = (
-        max_iter = max_iter,
-        max_time = max_time,
-        max_eval = max_eval,
-        atol = atol,
-        rtol = rtol,
-        subproblem_modifier = first_order ? modifier : identity,
-        callback = callback,
+        max_iter=max_iter,
+        max_time=max_time,
+        max_eval=max_eval,
+        atol=atol,
+        rtol=rtol,
+        subproblem_modifier=first_order ? modifier : identity,
+        callback=callback,
     )
     # Percival 0.7 dropped the subsolver logger; only an integer verbosity
     # flag is forwarded to the subsolver.
@@ -177,21 +193,17 @@ function _percival(
     end
     if Percival.unconstrained(nlp) || Percival.bound_constrained(nlp)
         return Percival.percival(
-            Val(:tron),
-            nlp;
-            _kwargs1...,
-            max_cgiter = max_cgiter,
-            verbose = _verbose,
+            Val(:tron), nlp; _kwargs1..., max_cgiter=max_cgiter, verbose=_verbose
         )
     elseif Percival.equality_constrained(nlp)
         _kwargs2 = merge(
             _kwargs1,
             (;
-                μ = μ,
-                ctol = ctol,
-                subsolver_max_eval = subsolver_max_eval,
-                subsolver_max_cgiter = max_cgiter,
-                subsolver_verbose = _verbose,
+                μ=μ,
+                ctol=ctol,
+                subsolver_max_eval=subsolver_max_eval,
+                subsolver_max_cgiter=max_cgiter,
+                subsolver_verbose=_verbose,
             ),
         )
         return Percival.percival(Val(:equ), nlp; _kwargs2...)
@@ -199,11 +211,11 @@ function _percival(
         _kwargs3 = merge(
             _kwargs1,
             (;
-                μ = μ,
-                ctol = ctol,
-                subsolver_max_eval = subsolver_max_eval,
-                subsolver_max_cgiter = max_cgiter,
-                subsolver_verbose = _verbose,
+                μ=μ,
+                ctol=ctol,
+                subsolver_max_eval=subsolver_max_eval,
+                subsolver_max_cgiter=max_cgiter,
+                subsolver_verbose=_verbose,
             ),
         )
         return Percival.percival(Val(:ineq), nlp; _kwargs3...)
@@ -214,7 +226,7 @@ function Workspace(model::VecModel, optimizer::PercivalAlg, args...; kwargs...)
     return PercivalWorkspace(model, args...; kwargs...)
 end
 
-function reset!(w::AugLagWorkspace, x0 = nothing)
+function reset!(w::AugLagWorkspace, x0=nothing)
     w.counter[] = 0
     if x0 !== nothing
         w.x0 .= x0
@@ -233,7 +245,9 @@ function get_percival_problem(model::VecModel, x0::AbstractVector)
     else
         model.ineq_constraints
     end
-    obj = CountingFunction(getobjective(model))
+    obj = getobjective(model)
+    obj === nothing && throw(ArgumentError("The model has no objective."))
+    obj = CountingFunction(obj)
     return get_percival_problem(obj, ineq, eq, x0, getmin(model), getmax(model)),
     obj.counter
 end
@@ -270,6 +284,7 @@ function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
     nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon)
+    nlp::NLPModels.AbstractNLPModel = nlp
     return nlp
 end
 
@@ -281,38 +296,38 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
     minimize::Bool = true
     nvar = length(x0)
     ncon = length(lcon)
-    c! = (cx, x) -> (cx .= c(x); cx)
+    c! = (cx, x) -> (cx.=c(x); cx)
     adbackend = ADNLPModels.ADModelBackend(
         nvar,
         f,
         ncon,
         c!;
-        x0 = x0,
-        gradient_backend = ADNLPModels.ReverseDiffADGradient,
-        hprod_backend = ADNLPModels.ForwardDiffADHvprod,
-        jprod_backend = ADNLPModels.ReverseDiffADJprod,
-        jtprod_backend = ADNLPModels.ReverseDiffADJtprod,
-        jacobian_backend = ADNLPModels.ForwardDiffADJacobian,
-        hessian_backend = ADNLPModels.SparseReverseADHessian,
-        ghjvprod_backend = ADNLPModels.ForwardDiffADGHjvprod,
+        x0=x0,
+        gradient_backend=ADNLPModels.ReverseDiffADGradient,
+        hprod_backend=ADNLPModels.ForwardDiffADHvprod,
+        jprod_backend=ADNLPModels.ReverseDiffADJprod,
+        jtprod_backend=ADNLPModels.ReverseDiffADJtprod,
+        jacobian_backend=ADNLPModels.ForwardDiffADJacobian,
+        hessian_backend=ADNLPModels.SparseReverseADHessian,
+        ghjvprod_backend=ADNLPModels.ForwardDiffADGHjvprod,
     )
     nnzh = nvar * (nvar + 1) / 2
     nnzj = nvar * ncon
     meta = ADNLPModels.NLPModelMeta{T,S}(
-        nvar,
-        x0 = x0,
-        lvar = lvar,
-        uvar = uvar,
-        ncon = ncon,
-        y0 = y0,
-        lcon = lcon,
-        ucon = ucon,
-        nnzj = nnzj,
-        nnzh = nnzh,
-        lin = lin,
-        minimize = minimize,
-        islp = false,
-        name = name,
+        nvar;
+        x0=x0,
+        lvar=lvar,
+        uvar=uvar,
+        ncon=ncon,
+        y0=y0,
+        lcon=lcon,
+        ucon=ucon,
+        nnzj=nnzj,
+        nnzh=nnzh,
+        lin=lin,
+        minimize=minimize,
+        islp=false,
+        name=name,
     )
     return ADNLPModels.ADNLPModel(meta, ADNLPModels.Counters(), adbackend, f, c!)
 end
