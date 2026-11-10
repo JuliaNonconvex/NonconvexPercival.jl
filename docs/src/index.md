@@ -1,4 +1,4 @@
-# # Augmented Lagrangian algorithm in pure Julia
+# Augmented Lagrangian algorithm in pure Julia
 
 ## Description
 
