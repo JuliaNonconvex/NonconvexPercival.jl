@@ -73,10 +73,10 @@ function _Hv!(Hv, ℓ, x, v)
     return Hv
 end
 function ADNLPModels.Hvprod!(::ZygoteHvprod, Hv, x, v, ℓ, ::Val{:obj}, obj_weight)
-    _Hv!(Hv, ℓ, x, v)
+    return _Hv!(Hv, ℓ, x, v)
 end
 function ADNLPModels.Hvprod!(::ZygoteHvprod, Hv, x, v, ℓ, ::Val{:lag}, y, obj_weight)
-    _Hv!(Hv, ℓ, x, v)
+    return _Hv!(Hv, ℓ, x, v)
 end
 ADNLPModels.Hvprod!(::ZygoteHvprod, Hv, x, v, ℓ, ::Val{:ci}) = _Hv!(Hv, ℓ, x, v)
 
