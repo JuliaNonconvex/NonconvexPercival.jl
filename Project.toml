@@ -5,6 +5,7 @@ authors = ["Mohamed Tarek <mohdibntarek@gmail.com> and contributors"]
 
 [deps]
 ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearOperators = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
@@ -13,9 +14,11 @@ NonconvexCore = "035190e5-69f1-488f-aaab-becca2889735"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Percival = "01435c0c-c90d-11e9-3788-63660f8fbccc"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
 ADNLPModels = "0.7, 0.8"
+ForwardDiff = "0.10, 1"
 LinearAlgebra = "1"
 LinearOperators = "2"
 NLPModels = "0.21"
@@ -26,6 +29,7 @@ Percival = "0.7.4, 0.7"
 Reexport = "1"
 StableRNGs = "1.1"
 Test = "1"
+Zygote = "0.6, 0.7"
 TestItemRunner = "0.1, 0.2, 1"
 TestItems = "0.1, 1"
 julia = "1.10"

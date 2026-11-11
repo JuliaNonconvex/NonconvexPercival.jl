@@ -14,6 +14,8 @@ using NonconvexCore:
 using NonconvexCore: Solution, ConvergenceState, NoCallback
 import NonconvexCore: Workspace, reset!, optimize!
 
+include("zygote_backends.jl")
+
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
@@ -296,6 +298,8 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
     minimize::Bool = true
     nvar = length(x0)
     ncon = length(lcon)
+    # Vectorized fill: broadcast assignment into the Zygote Buffer is
+    # supported (scalar setindex! loops force per-element pullbacks).
     c! = (cx, x) -> (cx.=c(x); cx)
     adbackend = ADNLPModels.ADModelBackend(
         nvar,
@@ -303,13 +307,13 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
         ncon,
         c!;
         x0=x0,
-        gradient_backend=ADNLPModels.ReverseDiffADGradient,
-        hprod_backend=ADNLPModels.ForwardDiffADHvprod,
-        jprod_backend=ADNLPModels.ReverseDiffADJprod,
-        jtprod_backend=ADNLPModels.ReverseDiffADJtprod,
-        jacobian_backend=ADNLPModels.ForwardDiffADJacobian,
-        hessian_backend=ADNLPModels.SparseReverseADHessian,
-        ghjvprod_backend=ADNLPModels.ForwardDiffADGHjvprod,
+        gradient_backend=ZygoteGradient,
+        hprod_backend=ZygoteHvprod,
+        jprod_backend=ZygoteJprod,
+        jtprod_backend=ZygoteJtprod,
+        jacobian_backend=ZygoteJacobian,
+        hessian_backend=ZygoteHessian,
+        ghjvprod_backend=ZygoteGHjvprod,
     )
     nnzh = nvar * (nvar + 1) / 2
     nnzj = nvar * ncon
