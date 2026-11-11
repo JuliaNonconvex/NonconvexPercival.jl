@@ -14,6 +14,8 @@ using NonconvexCore:
 using NonconvexCore: Solution, ConvergenceState, NoCallback
 import NonconvexCore: Workspace, reset!, optimize!
 
+include("zygote_backends.jl")
+
 struct PercivalAlg <: AbstractOptimizer end
 const AugLag = PercivalAlg
 
@@ -283,12 +285,46 @@ function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
     end
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
-    nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon)
+    jump = _is_jump_converted(obj, ineq_constr, eq_constr)
+    nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon; jump)
     nlp::NLPModels.AbstractNLPModel = nlp
     return nlp
 end
 
-function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where {S}
+# A JuMP-converted model exposes its derivatives through the JuMPModel*
+# wrappers' ChainRules rrules; only Zygote (which consults ChainRules) can
+# pick those up. Other models keep the ReverseDiff/ForwardDiff backends,
+# whose compiled tapes are faster for repeated plain-function evaluations.
+function _is_jump_converted(obj, ineq_constr, eq_constr)
+    raw = obj
+    raw = raw isa CountingFunction ? raw.f : raw
+    raw = raw isa NonconvexCore.Objective ? NonconvexCore.getfunction(raw) : raw
+    raw = raw isa NonconvexCore.FlattenedFunction ? NonconvexCore.getrawfunction(raw) : raw
+    raw isa NonconvexCore.JuMPModelObjective || return false
+    for c in (ineq_constr === nothing ? () : ineq_constr.fs)
+        r = if c.f isa NonconvexCore.FlattenedFunction
+            NonconvexCore.getrawfunction(c.f)
+        else
+            c.f
+        end
+        r = r isa FunctionWrapper ? NonconvexCore.getfunction(r) : r
+        r isa NonconvexCore.JuMPModelIneq || return false
+    end
+    for c in (eq_constr === nothing ? () : eq_constr.fs)
+        r = if c.f isa NonconvexCore.FlattenedFunction
+            NonconvexCore.getrawfunction(c.f)
+        else
+            c.f
+        end
+        r = r isa FunctionWrapper ? NonconvexCore.getfunction(r) : r
+        r isa NonconvexCore.JuMPModelEq || return false
+    end
+    return true
+end
+
+function zygote_nlp_model(
+    f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S; jump::Bool=false
+) where {S}
     T = eltype(S)
     y0 = fill!(similar(lcon), zero(T))
     name::String = "Generic"
@@ -296,21 +332,44 @@ function zygote_nlp_model(f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S) where
     minimize::Bool = true
     nvar = length(x0)
     ncon = length(lcon)
+    # Vectorized fill: broadcast assignment into the Zygote Buffer is
+    # supported (scalar setindex! loops force per-element pullbacks).
     c! = (cx, x) -> (cx.=c(x); cx)
-    adbackend = ADNLPModels.ADModelBackend(
-        nvar,
-        f,
-        ncon,
-        c!;
-        x0=x0,
-        gradient_backend=ADNLPModels.ReverseDiffADGradient,
-        hprod_backend=ADNLPModels.ForwardDiffADHvprod,
-        jprod_backend=ADNLPModels.ReverseDiffADJprod,
-        jtprod_backend=ADNLPModels.ReverseDiffADJtprod,
-        jacobian_backend=ADNLPModels.ForwardDiffADJacobian,
-        hessian_backend=ADNLPModels.SparseReverseADHessian,
-        ghjvprod_backend=ADNLPModels.ForwardDiffADGHjvprod,
-    )
+    adbackend = if jump
+        # JuMP-converted models: Zygote consults ChainRules and picks up the
+        # analytic evaluator derivatives from the JuMPModel* rrules.
+        ADNLPModels.ADModelBackend(
+            nvar,
+            f,
+            ncon,
+            c!;
+            x0=x0,
+            gradient_backend=ZygoteGradient,
+            hprod_backend=ZygoteHvprod,
+            jprod_backend=ZygoteJprod,
+            jtprod_backend=ZygoteJtprod,
+            jacobian_backend=ZygoteJacobian,
+            hessian_backend=ZygoteHessian,
+            ghjvprod_backend=ZygoteGHjvprod,
+        )
+    else
+        # Plain models: the compiled ReverseDiff/ForwardDiff tapes are faster
+        # for repeated evaluations of user functions.
+        ADNLPModels.ADModelBackend(
+            nvar,
+            f,
+            ncon,
+            c!;
+            x0=x0,
+            gradient_backend=ADNLPModels.ReverseDiffADGradient,
+            hprod_backend=ADNLPModels.ForwardDiffADHvprod,
+            jprod_backend=ADNLPModels.ReverseDiffADJprod,
+            jtprod_backend=ADNLPModels.ReverseDiffADJtprod,
+            jacobian_backend=ADNLPModels.ForwardDiffADJacobian,
+            hessian_backend=ADNLPModels.SparseReverseADHessian,
+            ghjvprod_backend=ADNLPModels.ForwardDiffADGHjvprod,
+        )
+    end
     nnzh = nvar * (nvar + 1) / 2
     nnzj = nvar * ncon
     meta = ADNLPModels.NLPModelMeta{T,S}(
