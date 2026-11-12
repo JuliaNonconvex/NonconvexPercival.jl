@@ -37,11 +37,16 @@ end
 
 struct PercivalOptions{T<:NamedTuple}
     nt::T
+    backend::Symbol
 end
-function PercivalOptions(; first_order=true, memory=5, kwargs...)
-    return PercivalOptions((;
-        first_order=first_order, memory=memory, inity=ones, kwargs...
-    ),)
+# Positional constructor on the raw options NamedTuple (JET-1.13 compatibility).
+PercivalOptions(nt::NamedTuple) = PercivalOptions(nt, :auto)
+function PercivalOptions(; first_order=true, memory=5, backend::Symbol=:auto, kwargs...)
+    backend in (:auto, :zygote) ||
+        throw(ArgumentError("backend must be :auto (default) or :zygote"))
+    return PercivalOptions(
+        (; first_order=first_order, memory=memory, inity=ones, kwargs...), backend
+    )
 end
 const AugLagOptions = PercivalOptions
 
@@ -67,7 +72,7 @@ function PercivalWorkspace(
     callback::Function=NoCallback(),
     kwargs...,
 )
-    problem, counter = get_percival_problem(model, copy(x0))
+    problem, counter = get_percival_problem(model, copy(x0), options.backend)
     return PercivalWorkspace(model, problem, copy(x0), options, counter, callback)
 end
 struct PercivalResult{TM1,TM2,TP,TR,TF} <: AbstractResult
@@ -236,7 +241,7 @@ function reset!(w::AugLagWorkspace, x0=nothing)
     return w
 end
 
-function get_percival_problem(model::VecModel, x0::AbstractVector)
+function get_percival_problem(model::VecModel, x0::AbstractVector, backend::Symbol=:auto)
     eq = if length(model.eq_constraints.fs) == 0
         nothing
     else
@@ -250,10 +255,12 @@ function get_percival_problem(model::VecModel, x0::AbstractVector)
     obj = getobjective(model)
     obj === nothing && throw(ArgumentError("The model has no objective."))
     obj = CountingFunction(obj)
-    return get_percival_problem(obj, ineq, eq, x0, getmin(model), getmax(model)),
+    return get_percival_problem(obj, ineq, eq, x0, getmin(model), getmax(model), backend),
     obj.counter
 end
-function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
+function get_percival_problem(
+    obj, ineq_constr, eq_constr, x0, xlb, xub, backend::Symbol=:auto
+)
     T = eltype(x0)
     nvars = length(x0)
     if ineq_constr !== nothing
@@ -285,7 +292,7 @@ function get_percival_problem(obj, ineq_constr, eq_constr, x0, xlb, xub)
     end
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
-    jump = _is_jump_converted(obj, ineq_constr, eq_constr)
+    jump = backend === :zygote || _is_jump_converted(obj, ineq_constr, eq_constr)
     nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon; jump)
     nlp::NLPModels.AbstractNLPModel = nlp
     return nlp
