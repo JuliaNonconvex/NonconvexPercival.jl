@@ -1,8 +1,10 @@
 [deps]
 ADNLPModels = "54578032-b7ea-4c30-94aa-7cbd1cce6c9a"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearOperators = "5c8ed15e-5a4c-59e4-a42b-c7e8811fb125"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
@@ -17,12 +19,19 @@ StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+
+[sources]
+NonconvexCore = {path = "/home/mmm/JuliaEnvs/NonconvexEnv/repos/NonconvexCore.jl"}
+NonconvexPercival = {path = ".."}
 
 [compat]
 ADNLPModels = "0.7, 0.8"
 Aqua = "0.8, 0.9"
+ForwardDiff = "1"
 JET = "0.9, 0.10, 0.11, 0.12, 0.13"
 JSON = "1"
+JuMP = "1"
 LinearAlgebra = "1"
 LinearOperators = "2"
 NLPModels = "0.21"
@@ -36,4 +45,5 @@ StableRNGs = "1.1"
 Test = "1"
 TestItemRunner = "0.1, 0.2, 1"
 TestItems = "0.1, 1"
+Zygote = "0.6, 0.7"
 julia = "1.10"

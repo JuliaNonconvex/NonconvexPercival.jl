@@ -37,7 +37,9 @@ ADNLPModels.jacobian(::ZygoteJacobian, c, x) = Zygote.jacobian(c, x)[1]
 struct ZygoteJprod <: ImmutableADbackend end
 ZygoteJprod(nvar, f, ncon=0, c!::Function=(args...) -> []; kwargs...) = ZygoteJprod()
 function ADNLPModels.Jprod!(::ZygoteJprod, Jv, c, x, v, ::Val)
-    Jv .= vec(Zygote.jacobian(t -> c(x + t * v), 0)[1])
+    # Forward-mode directional Jacobian: c is vector-valued, so use a
+    # one-variable jacobian (derivative requires a scalar output).
+    Jv .= vec(ForwardDiff.jacobian(t -> c(x .+ t[1] .* v), [0.0]))
     return Jv
 end
 
@@ -83,8 +85,10 @@ ADNLPModels.Hvprod!(::ZygoteHvprod, Hv, x, v, ℓ, ::Val{:ci}) = _Hv!(Hv, ℓ, x
 struct ZygoteGHjvprod <: ImmutableADbackend end
 ZygoteGHjvprod(nvar, f, ncon=0, c!::Function=(args...) -> []; kwargs...) = ZygoteGHjvprod()
 function ADNLPModels.directional_second_derivative(::ZygoteGHjvprod, f, x, v, w)
-    # w'∇²f(x) v for the scalar function f.
-    return Zygote.gradient(t -> dot(Zygote.gradient(f, x + t * v)[1], w), 0)[1]
+    # Per-row directional second derivative gHv[i] = w'∇²fᵢ(x)v, mirroring
+    # ADNLPModels' ForwardDiff reference backend: Zygote cannot differentiate
+    # through its own `gradient`, so use the double forward-mode derivative.
+    return ForwardDiff.derivative(t -> ForwardDiff.derivative(s -> f(x .+ s .* w .+ t .* v), 0.0), 0.0)
 end
 
 # The default `get_c` mutates a plain array, which Zygote cannot trace; the
