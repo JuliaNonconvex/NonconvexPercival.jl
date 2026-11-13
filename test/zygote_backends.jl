@@ -27,12 +27,27 @@
     # Hessian-vector products: objective, Lagrangian and single-constraint variants
     Hv = NLPModels.hprod(nlp, x0, v; obj_weight=1.0)
     @test Hv ≈ H * v
+    # `obj_weight` must scale the objective Hessian-vector product exactly once:
+    # the ADModel folds it into the Lagrangian closure passed to `Hvprod!`, and
+    # the backend must not re-apply it (that would square the weight).
+    Hv_w2 = NLPModels.hprod(nlp, x0, v; obj_weight=2.0)
+    @test Hv_w2 ≈ 2 .* Hv
     y = [1.0, 2.0]
     Hv_lag = NLPModels.hprod(nlp, x0, y, v; obj_weight=1.0)
     @test Hv_lag ≈
         H * v +
           y[1] * ForwardDiff.hessian(z -> c(z)[1], x0) * v +
           y[2] * ForwardDiff.hessian(z -> c(z)[2], x0) * v
+    Hv_lag_w2 = NLPModels.hprod(nlp, x0, y, v; obj_weight=2.0)
+    @test Hv_lag_w2 ≈ Hv_lag + H * v
+    # The same contract holds when the backend method is invoked directly with
+    # the Lagrangian closure the caller builds through `ADNLPModels.get_lag`.
+    Hv_direct = similar(Hv)
+    ℓ_w2 = ADNLPModels.get_lag(nlp, NonconvexPercival.ZygoteHvprod(), 2.0)
+    ADNLPModels.Hvprod!(
+        NonconvexPercival.ZygoteHvprod(), Hv_direct, x0, v, ℓ_w2, Val(:obj), 2.0
+    )
+    @test Hv_direct ≈ Hv_w2
     Hv_ci = NLPModels.jth_hprod(nlp, x0, v, 1)
     @test Hv_ci ≈ ForwardDiff.hessian(z -> c(z)[1], x0) * v
 
@@ -52,6 +67,24 @@
     # Buffer-based constraint closure for the immutable backends
     cc = ADNLPModels.get_c(nlp, NonconvexPercival.ZygoteJacobian(2, f, 2))
     @test cc(x0) ≈ c(x0)
+end
+
+@testitem "Integer Hessian metadata" begin
+    using NonconvexPercival, Test, LinearAlgebra
+
+    # The internal model-building path used by Workspace must store the number
+    # of nonzeros in the Lagrangian Hessian as an Int (triangular count), not
+    # as a Float64 from `nvar * (nvar + 1) / 2`.
+    f(x) = sum(x .^ 2)
+    c(x) = [x[1] + x[2] - 1.0]
+    n = 3
+    x0 = [0.3, 0.4, 0.5]
+    nlp = NonconvexPercival.zygote_nlp_model(
+        f, x0, fill(-1.0, n), fill(1.0, n), c, [-Inf], [0.0]
+    )
+    @test nlp.meta.nnzh isa Int
+    @test nlp.meta.nnzh == div(n * (n + 1), 2)
+    @test nlp.meta.nnzh == 6
 end
 
 @testitem "JuMP-converted Zygote path" begin
