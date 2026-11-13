@@ -88,7 +88,9 @@ function ADNLPModels.directional_second_derivative(::ZygoteGHjvprod, f, x, v, w)
     # Per-row directional second derivative gHv[i] = w'∇²fᵢ(x)v, mirroring
     # ADNLPModels' ForwardDiff reference backend: Zygote cannot differentiate
     # through its own `gradient`, so use the double forward-mode derivative.
-    return ForwardDiff.derivative(t -> ForwardDiff.derivative(s -> f(x .+ s .* w .+ t .* v), 0.0), 0.0)
+    return ForwardDiff.derivative(
+        t -> ForwardDiff.derivative(s -> f(x .+ s .* w .+ t .* v), 0.0), 0.0
+    )
 end
 
 # The default `get_c` mutates a plain array, which Zygote cannot trace; the
