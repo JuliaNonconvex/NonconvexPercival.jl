@@ -7,7 +7,7 @@
     c(x) = [x[1]^2 - x[2], x[1] + x[2] - 1.5]
     x0 = [0.5, 0.8]
     nlp = NonconvexPercival.zygote_nlp_model(
-        f, x0, fill(-5.0, 2), fill(5.0, 2), c, [-Inf, -Inf], [0.0, 0.0]; jump=true,
+        f, x0, fill(-5.0, 2), fill(5.0, 2), c, [-Inf, -Inf], [0.0, 0.0]; jump=true
     )
     @test nlp isa AbstractNLPModel
 
@@ -29,8 +29,10 @@
     @test Hv ≈ H * v
     y = [1.0, 2.0]
     Hv_lag = NLPModels.hprod(nlp, x0, y, v; obj_weight=1.0)
-    @test Hv_lag ≈ H * v + y[1] * ForwardDiff.hessian(z -> c(z)[1], x0) * v +
-                   y[2] * ForwardDiff.hessian(z -> c(z)[2], x0) * v
+    @test Hv_lag ≈
+        H * v +
+          y[1] * ForwardDiff.hessian(z -> c(z)[1], x0) * v +
+          y[2] * ForwardDiff.hessian(z -> c(z)[2], x0) * v
     Hv_ci = NLPModels.jth_hprod(nlp, x0, v, 1)
     @test Hv_ci ≈ ForwardDiff.hessian(z -> c(z)[1], x0) * v
 
@@ -43,8 +45,9 @@
     # Directional second derivative: ghjvprod folds the constraint rows
     w = [0.1, -0.2]
     ghjv = NLPModels.ghjvprod(nlp, x0, w, v)
-    @test ghjv ≈ w[1] * ForwardDiff.hessian(z -> c(z)[1], x0) * v +
-                  w[2] * ForwardDiff.hessian(z -> c(z)[2], x0) * v
+    @test ghjv ≈
+        w[1] * ForwardDiff.hessian(z -> c(z)[1], x0) * v +
+          w[2] * ForwardDiff.hessian(z -> c(z)[2], x0) * v
 
     # Buffer-based constraint closure for the immutable backends
     cc = ADNLPModels.get_c(nlp, NonconvexPercival.ZygoteJacobian(2, f, 2))
