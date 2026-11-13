@@ -98,6 +98,12 @@ function optimize!(workspace::PercivalWorkspace)
         callback=percival_callback(callback, length(x0)),
     )
     result.solution = result.solution[1:length(x0)]
+    # Warm start: Percival starts from `nlp.meta.x0` (its native `reset!`
+    # seeds the subproblem from the model's `meta.x0`), and `optimize!` fills
+    # `problem.meta.x0` from the workspace's `x0` above. Write the minimizer
+    # back into the workspace's `x0` so that the next `optimize!` call on this
+    # workspace starts from the previous minimizer.
+    x0 .= result.solution
     return PercivalResult(
         copy(result.solution), result.objective, problem, result, counter[]
     )
@@ -377,7 +383,7 @@ function zygote_nlp_model(
             ghjvprod_backend=ADNLPModels.ForwardDiffADGHjvprod,
         )
     end
-    nnzh = nvar * (nvar + 1) / 2
+    nnzh = div(nvar * (nvar + 1), 2)
     nnzj = nvar * ncon
     meta = ADNLPModels.NLPModelMeta{T,S}(
         nvar;

@@ -18,6 +18,32 @@
     end
 end
 
+@testitem "Warm start across repeated optimize!" begin
+    using NonconvexPercival, NonconvexCore, LinearAlgebra, Test, StableRNGs
+
+    f(x::AbstractVector) = sqrt(x[2])
+    g(x::AbstractVector, a, b) = (a * x[1] + b)^3 - x[2]
+
+    alg = AugLag()
+
+    m = Model(f)
+    addvar!(m, [1e-4, 1e-4], [10.0, 10.0])
+    add_ineq_constraint!(m, x -> g(x, 2, 0))
+    add_ineq_constraint!(m, x -> g(x, -1, 1))
+    vm, _, _ = NonconvexCore.tovecmodel(m)
+    ws = Workspace(vm, alg, [1.234, 2.345], options=AugLagOptions())
+    r1 = NonconvexCore.optimize!(ws)
+    @test abs(r1.minimum - sqrt(8 / 27)) < 1e-6
+    # `optimize!` must write the minimizer back into the workspace's x0 so
+    # that the next `optimize!` call warm-starts from it.
+    @test ws.x0 ≈ r1.minimizer
+    r2 = NonconvexCore.optimize!(ws)
+    # The second solve starts from the first minimizer and must be no worse
+    # (within the solver's own tolerance scale).
+    @test r2.minimum <= r1.minimum + 1e-6
+    @test abs(r2.minimum - sqrt(8 / 27)) < 1e-6
+end
+
 @testitem "Equality constraints" begin
     using NonconvexPercival, LinearAlgebra, Test, StableRNGs
 

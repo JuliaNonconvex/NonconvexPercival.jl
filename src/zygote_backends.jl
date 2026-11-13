@@ -74,6 +74,12 @@ function _Hv!(Hv, ℓ, x, v)
     Hv .= ForwardDiff.derivative(t -> ForwardDiff.gradient(ℓ, x .+ t .* v), 0)
     return Hv
 end
+# ADNLPModels folds the objective weight (and, for `:lag`, the constraint
+# multipliers) into the Lagrangian closure `ℓ` that it passes here before
+# calling `Hvprod!` (see `ADNLPModels.get_lag`, called by
+# `NLPModels.hprod!(nlp::ADModel, ...)`). The closures below must therefore be
+# differentiated as-is: applying `obj_weight` (or `y`) a second time would
+# scale the objective curvature twice.
 function ADNLPModels.Hvprod!(::ZygoteHvprod, Hv, x, v, ℓ, ::Val{:obj}, obj_weight)
     return _Hv!(Hv, ℓ, x, v)
 end
