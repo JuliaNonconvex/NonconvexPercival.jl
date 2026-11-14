@@ -40,10 +40,10 @@ struct PercivalOptions{T<:NamedTuple}
     backend::Symbol
 end
 # Positional constructor on the raw options NamedTuple (JET-1.13 compatibility).
-PercivalOptions(nt::NamedTuple) = PercivalOptions(nt, :auto)
-function PercivalOptions(; first_order=true, memory=5, backend::Symbol=:auto, kwargs...)
+PercivalOptions(nt::NamedTuple) = PercivalOptions(nt, :zygote)
+function PercivalOptions(; first_order=true, memory=5, backend::Symbol=:zygote, kwargs...)
     backend in (:auto, :zygote) ||
-        throw(ArgumentError("backend must be :auto (default) or :zygote"))
+        throw(ArgumentError("backend must be :zygote (default) or :auto"))
     return PercivalOptions(
         (; first_order=first_order, memory=memory, inity=ones, kwargs...), backend
     )
@@ -247,7 +247,7 @@ function reset!(w::AugLagWorkspace, x0=nothing)
     return w
 end
 
-function get_percival_problem(model::VecModel, x0::AbstractVector, backend::Symbol=:auto)
+function get_percival_problem(model::VecModel, x0::AbstractVector, backend::Symbol=:zygote)
     eq = if length(model.eq_constraints.fs) == 0
         nothing
     else
@@ -265,7 +265,7 @@ function get_percival_problem(model::VecModel, x0::AbstractVector, backend::Symb
     obj.counter
 end
 function get_percival_problem(
-    obj, ineq_constr, eq_constr, x0, xlb, xub, backend::Symbol=:auto
+    obj, ineq_constr, eq_constr, x0, xlb, xub, backend::Symbol=:zygote
 )
     T = eltype(x0)
     nvars = length(x0)
@@ -304,10 +304,12 @@ function get_percival_problem(
     return nlp
 end
 
-# A JuMP-converted model exposes its derivatives through the JuMPModel*
-# wrappers' ChainRules rrules; only Zygote (which consults ChainRules) can
-# pick those up. Other models keep the ReverseDiff/ForwardDiff backends,
-# whose compiled tapes are faster for repeated plain-function evaluations.
+# Zygote is the default backend: it consults ChainRules, so it picks up
+# the JuMPModel* wrappers' rrules *and* the rrules of user-facing function
+# stacks (TopOpt assemblies, BlockComplianceFun, ...) that ReverseDiff
+# cannot track (they convert ReverseDiff.TrackedReal to Float64 and crash).
+# `backend = :auto` restores the old hybrid: Zygote for JuMP-converted
+# models, the faster compiled ReverseDiff/ForwardDiff tapes for plain ones.
 function _is_jump_converted(obj, ineq_constr, eq_constr)
     raw = obj
     raw = raw isa CountingFunction ? raw.f : raw
