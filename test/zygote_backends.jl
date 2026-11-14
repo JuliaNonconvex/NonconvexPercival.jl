@@ -109,3 +109,33 @@ end
     # named); the solve itself is what matters for this regression.
     @test r.minimizer !== nothing
 end
+
+@testitem "auto backend jump detection" begin
+    using NonconvexPercival, NonconvexCore, LinearAlgebra, Test, JuMP
+
+    # Plain model + backend=:auto: _is_jump_converted runs and returns false.
+    m = NonconvexCore.Model(x -> (x[1] - 1)^2 + (x[2] - 2)^2)
+    addvar!(m, [-5.0, -5.0], [5.0, 5.0])
+    add_ineq_constraint!(m, x -> x[1]^2 + x[2]^2 - 1.0)
+    r = NonconvexPercival.optimize(
+        m, AugLag(), [0.5, 0.5]; options=AugLagOptions(backend=:auto, max_iter=20)
+    )
+    @test isfinite(r.minimum)
+
+    # JuMP-converted model + backend=:auto: the full detection body runs and
+    # the single Nonlinear evaluator is used.
+    jm = JuMP.Model()
+    JuMP.@variable(jm, x[1:2] >= -5.0, start=0.5)
+    JuMP.@constraint(jm, sin(x[1]) + x[2] <= 1.0)
+    JuMP.@constraint(jm, x[1] + x[2] == 1.0)
+    JuMP.@objective(jm, Min, (x[1] - 1)^2 + (x[2] - 2)^2)
+    dm = NonconvexCore.DictModel(jm)
+    r2 = NonconvexPercival.optimize(
+        dm,
+        AugLag(),
+        NonconvexCore.getinit(dm);
+        options=AugLagOptions(backend=:auto, max_iter=20),
+    )
+    @test isfinite(r2.minimum)
+    @test r2.minimizer !== nothing
+end
