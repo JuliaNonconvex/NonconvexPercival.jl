@@ -16,7 +16,26 @@ import NonconvexCore: Workspace, reset!, optimize!
 
 include("zygote_backends.jl")
 
+"""
+    PercivalAlg()
+
+The [Percival.jl](https://github.com/JuliaSmoothOptimizers/Percival.jl)
+augmented Lagrangian algorithm for nonlinear programming, exposed through
+the Nonconvex interface. It supports nonlinear inequality and equality
+constraints and box constraints, and can work in first-order mode
+(limited-memory quasi-Newton) or second-order mode. Options are set through
+[`PercivalOptions`](@ref).
+
+The alias `AugLag` refers to the same algorithm.
+"""
 struct PercivalAlg <: AbstractOptimizer end
+"""
+    AugLag
+
+Alias for [`PercivalAlg`](@ref), kept for backwards compatibility with the
+original `Nonconvex.@load AugLag` name. Note that the Julia-native
+`AugLagAlg` from NonconvexAugLab.jl is a different, newer algorithm.
+"""
 const AugLag = PercivalAlg
 
 function NonconvexCore.solver_capabilities(::PercivalAlg)
@@ -35,6 +54,23 @@ function NonconvexCore.solver_capabilities(::PercivalAlg)
     )
 end
 
+"""
+    PercivalOptions(; first_order=true, memory=5, backend::Symbol=:zygote, kwargs...)
+
+Options for [`PercivalAlg`](@ref), passed to `optimize` as `options = ...`.
+
+- `first_order`: when `true` (default) the subsolver uses a limited-memory
+  quasi-Newton Hessian approximation (first-order mode); when `false`,
+  exact Hessians are used (second-order mode).
+- `memory`: the limited-memory size of the quasi-Newton approximation.
+- `backend`: the AD backend for derivatives, `:zygote` (default) or `:auto`.
+
+All remaining keyword arguments are forwarded to Percival (tolerances,
+stopping criteria, etc.); see the
+[Percival documentation](https://juliasmoothoptimizers.github.io/Percival.jl/).
+
+The alias `AugLagOptions` refers to the same options type.
+"""
 struct PercivalOptions{T<:NamedTuple}
     nt::T
     backend::Symbol
@@ -48,6 +84,11 @@ function PercivalOptions(; first_order=true, memory=5, backend::Symbol=:zygote, 
         (; first_order=first_order, memory=memory, inity=ones, kwargs...), backend
     )
 end
+"""
+    AugLagOptions
+
+Alias for [`PercivalOptions`](@ref), kept for backwards compatibility.
+"""
 const AugLagOptions = PercivalOptions
 
 mutable struct PercivalWorkspace{
