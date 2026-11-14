@@ -1,5 +1,16 @@
 # NEWS
 
+## 0.3.5
+
+- **Zygote is now the default AD backend** (`PercivalOptions(backend=:zygote)`).
+  The previous hybrid default used ReverseDiff/ForwardDiff for plain
+  models, which crashes on function stacks that convert
+  `ReverseDiff.TrackedReal` to `Float64` (e.g. TopOpt's assembly
+  functions and `BlockComplianceFun` — the SAND and robust-RBTO models).
+  `backend=:auto` restores the old hybrid for the faster compiled tapes.
+
+
+
 ## 0.2.0
 
 - `optimize` now accepts the generic `callback` keyword. The callback runs
