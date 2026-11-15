@@ -1,5 +1,10 @@
 # NEWS
 
+## 0.3.6
+
+- Added docstrings for `PercivalAlg`, `PercivalOptions` and the `AugLag`/`AugLagOptions` aliases (REPL help and API reference).
+
+
 ## 0.3.5
 
 - **Zygote is now the default AD backend** (`PercivalOptions(backend=:zygote)`).
