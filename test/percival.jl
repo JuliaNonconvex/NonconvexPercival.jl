@@ -130,9 +130,8 @@ end
             @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
-    #=
     @testset "Infinite lower bound" begin
-        m = Model(f)
+        m = Model(x -> sqrt(abs(x[2])))
         addvar!(m, [-Inf, -Inf], [10, 10])
         add_ineq_constraint!(m, x -> g(x, 2, 0))
         add_ineq_constraint!(m, x -> g(x, -1, 1))
@@ -145,7 +144,7 @@ end
         end
     end
     @testset "Infinite upper and lower bound" begin
-        m = Model(f)
+        m = Model(x -> sqrt(abs(x[2])))
         addvar!(m, [-Inf, -Inf], [Inf, Inf])
         add_ineq_constraint!(m, x -> g(x, 2, 0))
         add_ineq_constraint!(m, x -> g(x, -1, 1))
@@ -157,7 +156,6 @@ end
             @test norm(r.minimizer - [1/3, 8/27]) < 1e-6
         end
     end
-    =#
 end
 
 @testitem "Box constrained" begin

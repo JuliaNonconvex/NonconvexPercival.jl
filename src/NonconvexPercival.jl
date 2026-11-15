@@ -14,7 +14,19 @@ using NonconvexCore:
 using NonconvexCore: Solution, ConvergenceState, NoCallback
 import NonconvexCore: Workspace, reset!, optimize!
 
-include("zygote_backends.jl")
+# AD backends come from NonconvexCore's ADNLPModels compatibility extension
+# (no AD code is defined here): Percival depends on ADNLPModels, so the
+# extension is always loaded when this package is. The `Zygote*` names are
+# the extension's historical ADNLPModels-style names; the derivatives are
+# computed with NonconvexCore's backend-agnostic AD.
+const _NCADNLPModelsExt = Base.get_extension(NonconvexCore, :NonconvexCoreADNLPModelsExt)
+const ZygoteGradient = _NCADNLPModelsExt.ZygoteGradient
+const ZygoteJacobian = _NCADNLPModelsExt.ZygoteJacobian
+const ZygoteJprod = _NCADNLPModelsExt.ZygoteJprod
+const ZygoteJtprod = _NCADNLPModelsExt.ZygoteJtprod
+const ZygoteHessian = _NCADNLPModelsExt.ZygoteHessian
+const ZygoteHvprod = _NCADNLPModelsExt.ZygoteHvprod
+const ZygoteGHjvprod = _NCADNLPModelsExt.ZygoteGHjvprod
 
 """
     PercivalAlg()
@@ -130,7 +142,20 @@ function optimize!(workspace::PercivalWorkspace)
     counter[] = 0
     m = getnineqconstraints(workspace.model) + getneqconstraints(workspace.model)
     problem.meta.x0 .= x0
-    inity_values = options.nt.inity(eltype(x0), m)
+    inity = options.nt.inity
+    inity_values = if inity isa AbstractVector
+        # A user-supplied multiplier vector must have one entry per
+        # constraint; it is written into the model's `y0` as-is.
+        length(inity) == m || throw(
+            DimensionMismatch(
+                "the initial multipliers (`inity`) must have one entry per " *
+                "constraint: expected $m entries, got $(length(inity))",
+            ),
+        )
+        inity
+    else
+        inity(eltype(x0), m)
+    end
     inity_values::Union{Nothing,AbstractVector} = inity_values
     result = _percival(
         problem;
@@ -345,12 +370,14 @@ function get_percival_problem(
     return nlp
 end
 
-# Zygote is the default backend: it consults ChainRules, so it picks up
-# the JuMPModel* wrappers' rrules *and* the rrules of user-facing function
-# stacks (TopOpt assemblies, BlockComplianceFun, ...) that ReverseDiff
-# cannot track (they convert ReverseDiff.TrackedReal to Float64 and crash).
-# `backend = :auto` restores the old hybrid: Zygote for JuMP-converted
-# models, the faster compiled ReverseDiff/ForwardDiff tapes for plain ones.
+# `:zygote` is the default backend: it uses NonconvexCore's ChainRules-aware
+# AD (via the Core ADNLPModels extension), so it picks up the JuMPModel*
+# wrappers' rrules *and* the rrules of user-facing function stacks (TopOpt
+# assemblies, BlockComplianceFun, ...) that ReverseDiff cannot track (they
+# convert ReverseDiff.TrackedReal to Float64 and crash).
+# `backend = :auto` restores the old hybrid: the Core backends for
+# JuMP-converted models, the faster compiled ReverseDiff/ForwardDiff tapes
+# for plain ones.
 function _is_jump_converted(obj, ineq_constr, eq_constr)
     raw = obj
     raw = raw isa CountingFunction ? raw.f : raw
@@ -392,8 +419,9 @@ function zygote_nlp_model(
     # supported (scalar setindex! loops force per-element pullbacks).
     c! = (cx, x) -> (cx.=c(x); cx)
     adbackend = if jump
-        # JuMP-converted models: Zygote consults ChainRules and picks up the
-        # analytic evaluator derivatives from the JuMPModel* rrules.
+        # JuMP-converted models: NonconvexCore AD consults ChainRules and
+        # picks up the analytic evaluator derivatives from the JuMPModel*
+        # rrules.
         ADNLPModels.ADModelBackend(
             nvar,
             f,
