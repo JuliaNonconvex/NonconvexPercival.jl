@@ -173,7 +173,8 @@ end
     model = Model(loss)
     addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init=[0.1, 0, 1])
     res = optimize(model, AugLag(), [0.1, -3, 1], options=AugLagOptions())
-    @test res.minimizer == [0.0, -2.3140286844577305, 0.06904076799516767]
+    # The last ULP varies with the AD backend; assert approximately.
+    @test res.minimizer ≈ [0.0, -2.3140286844577305, 0.06904076799516767] atol = 1e-12
 end
 
 @testitem "No second derivatives in first-order mode" begin
