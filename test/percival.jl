@@ -137,10 +137,10 @@ end
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 
         for first_order in (true, false)
-            options = AugLagOptions(first_order = first_order)
-            r = optimize(m, alg, [1.234, 2.345], options = options)
-            @test abs(r.minimum - sqrt(8/27)) < 1e-6
-            @test norm(r.minimizer - [1/3, 8/27]) < 1e-6
+            options = AugLagOptions(first_order=first_order)
+            r = optimize(m, alg, [1.234, 2.345], options=options)
+            @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+            @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
     @testset "Infinite upper and lower bound" begin
@@ -150,10 +150,10 @@ end
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 
         for first_order in (true, false)
-            options = AugLagOptions(first_order = first_order)
-            r = optimize(m, alg, [1.234, 2.345], options = options)
-            @test abs(r.minimum - sqrt(8/27)) < 1e-6
-            @test norm(r.minimizer - [1/3, 8/27]) < 1e-6
+            options = AugLagOptions(first_order=first_order)
+            r = optimize(m, alg, [1.234, 2.345], options=options)
+            @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+            @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
 end
