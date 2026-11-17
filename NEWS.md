@@ -1,5 +1,17 @@
 # NEWS
 
+## 0.3.7
+
+- The AD backends now come from NonconvexCore's ADNLPModels compatibility
+  extension (requires NonconvexCore 2.2.6); the package no longer defines
+  its own AD code.
+- The second-order backends use forward-over-reverse, fixing the previous
+  nested-Zygote Hessian that could silently return wrong values.
+- `inity` accepts an initial-multiplier vector (length-validated).
+- The `-Inf`-bounds testitems are enabled (the declared `infinite_bounds`
+  capability is now exercised), and the Box-constrained minimizer is
+  asserted approximately (the last ULP varies with the AD backend).
+
 ## 0.3.6
 
 - Added docstrings for `PercivalAlg`, `PercivalOptions` and the `AugLag`/`AugLagOptions` aliases (REPL help and API reference).
