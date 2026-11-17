@@ -54,7 +54,8 @@ The most important option is `first_order` which is `true` by default. When `fir
 - `memory`: the curvature memory of the L-BFGS approximation used by the
   first-order subproblems (default `5`)
 - `inity`: a function `(T, nconstraints) -> vector` returning the initial
-  Lagrange multipliers (default `ones`)
+  Lagrange multipliers (default `ones`), or an `AbstractVector` of initial
+  multipliers with one entry per constraint
 - `max_cgiter`: maximum number of conjugate-gradient iterations per
   subproblem (default `100`)
 - `subsolver_max_eval`: maximum number of evaluations of the subproblem

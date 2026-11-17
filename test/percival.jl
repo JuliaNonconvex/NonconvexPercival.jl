@@ -130,34 +130,32 @@ end
             @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
-    #=
     @testset "Infinite lower bound" begin
-        m = Model(f)
+        m = Model(x -> sqrt(abs(x[2])))
         addvar!(m, [-Inf, -Inf], [10, 10])
         add_ineq_constraint!(m, x -> g(x, 2, 0))
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 
         for first_order in (true, false)
-            options = AugLagOptions(first_order = first_order)
-            r = optimize(m, alg, [1.234, 2.345], options = options)
-            @test abs(r.minimum - sqrt(8/27)) < 1e-6
-            @test norm(r.minimizer - [1/3, 8/27]) < 1e-6
+            options = AugLagOptions(first_order=first_order)
+            r = optimize(m, alg, [1.234, 2.345], options=options)
+            @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+            @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
     @testset "Infinite upper and lower bound" begin
-        m = Model(f)
+        m = Model(x -> sqrt(abs(x[2])))
         addvar!(m, [-Inf, -Inf], [Inf, Inf])
         add_ineq_constraint!(m, x -> g(x, 2, 0))
         add_ineq_constraint!(m, x -> g(x, -1, 1))
 
         for first_order in (true, false)
-            options = AugLagOptions(first_order = first_order)
-            r = optimize(m, alg, [1.234, 2.345], options = options)
-            @test abs(r.minimum - sqrt(8/27)) < 1e-6
-            @test norm(r.minimizer - [1/3, 8/27]) < 1e-6
+            options = AugLagOptions(first_order=first_order)
+            r = optimize(m, alg, [1.234, 2.345], options=options)
+            @test abs(r.minimum - sqrt(8 / 27)) < 1e-6
+            @test norm(r.minimizer - [1 / 3, 8 / 27]) < 1e-6
         end
     end
-    =#
 end
 
 @testitem "Box constrained" begin
@@ -175,7 +173,8 @@ end
     model = Model(loss)
     addvar!(model, [0, -Inf, 0], [1, Inf, Inf], init=[0.1, 0, 1])
     res = optimize(model, AugLag(), [0.1, -3, 1], options=AugLagOptions())
-    @test res.minimizer == [0.0, -2.3140286844577305, 0.06904076799516767]
+    # The last ULP varies with the AD backend; assert approximately.
+    @test res.minimizer ≈ [0.0, -2.3140286844577305, 0.06904076799516767] atol = 1e-12
 end
 
 @testitem "No second derivatives in first-order mode" begin
