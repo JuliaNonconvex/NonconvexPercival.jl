@@ -365,7 +365,8 @@ function get_percival_problem(
     lcon = [fill(convert(T, -Inf), ineq_nconstr); zeros(T, eq_nconstr)]
     ucon = zeros(T, ineq_nconstr + eq_nconstr)
     jump = backend === :zygote || _is_jump_converted(obj, ineq_constr, eq_constr)
-    nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon; jump)
+    jump_evaluator = _jump_evaluator(obj, ineq_constr, eq_constr)
+    nlp = zygote_nlp_model(obj, x0, xlb, xub, c, lcon, ucon; jump, jump_evaluator)
     nlp::NLPModels.AbstractNLPModel = nlp
     return nlp
 end
@@ -405,8 +406,20 @@ function _is_jump_converted(obj, ineq_constr, eq_constr)
     return true
 end
 
+# The JuMPEvaluator behind a JuMP-converted model (unwrapping the objective
+# wrapper chain), or `nothing` when the model is not JuMP-converted.
+function _jump_evaluator(obj, ineq_constr, eq_constr)
+    raw = obj
+    raw = raw isa CountingFunction ? raw.f : raw
+    raw = raw isa NonconvexCore.Objective ? NonconvexCore.getfunction(raw) : raw
+    raw = raw isa NonconvexCore.FlattenedFunction ? NonconvexCore.getrawfunction(raw) : raw
+    raw isa NonconvexCore.JuMPModelObjective || return nothing
+    return raw.m
+end
+
 function zygote_nlp_model(
-    f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S; jump::Bool=false
+    f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S;
+    jump::Bool=false, jump_evaluator=nothing
 ) where {S}
     T = eltype(S)
     y0 = fill!(similar(lcon), zero(T))
@@ -419,15 +432,18 @@ function zygote_nlp_model(
     # supported (scalar setindex! loops force per-element pullbacks).
     c! = (cx, x) -> (cx.=c(x); cx)
     adbackend = if jump
-        # JuMP-converted models: NonconvexCore AD consults ChainRules and
-        # picks up the analytic evaluator derivatives from the JuMPModel*
-        # rrules.
+        # JuMP-converted models: when a JuMPEvaluator is available the
+        # Zygote* backend constructors return Core's exact MOI-evaluator
+        # backends (exact Jacobian and Hessian, Float64-safe Lagrangian
+        # Hessian-vector products); without one, NonconvexCore AD consults
+        # ChainRules and picks up the analytic JuMPModel* rrules.
         ADNLPModels.ADModelBackend(
             nvar,
             f,
             ncon,
             c!;
             x0=x0,
+            jump_evaluator=jump_evaluator,
             gradient_backend=ZygoteGradient,
             hprod_backend=ZygoteHvprod,
             jprod_backend=ZygoteJprod,
@@ -455,7 +471,8 @@ function zygote_nlp_model(
         )
     end
     nnzh = div(nvar * (nvar + 1), 2)
-    nnzj = nvar * ncon
+    nnzj = jump_evaluator !== nothing ?
+        ADNLPModels.get_nln_nnzj(adbackend, nvar, ncon) : nvar * ncon
     meta = ADNLPModels.NLPModelMeta{T,S}(
         nvar;
         x0=x0,
