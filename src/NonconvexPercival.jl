@@ -418,8 +418,15 @@ function _jump_evaluator(obj, ineq_constr, eq_constr)
 end
 
 function zygote_nlp_model(
-    f, x0::S, lvar::S, uvar::S, c, lcon::S, ucon::S;
-    jump::Bool=false, jump_evaluator=nothing
+    f,
+    x0::S,
+    lvar::S,
+    uvar::S,
+    c,
+    lcon::S,
+    ucon::S;
+    jump::Bool=false,
+    jump_evaluator=nothing,
 ) where {S}
     T = eltype(S)
     y0 = fill!(similar(lcon), zero(T))
@@ -471,8 +478,11 @@ function zygote_nlp_model(
         )
     end
     nnzh = div(nvar * (nvar + 1), 2)
-    nnzj = jump_evaluator !== nothing ?
-        ADNLPModels.get_nln_nnzj(adbackend, nvar, ncon) : nvar * ncon
+    nnzj = if jump_evaluator !== nothing
+        ADNLPModels.get_nln_nnzj(adbackend, nvar, ncon)
+    else
+        nvar * ncon
+    end
     meta = ADNLPModels.NLPModelMeta{T,S}(
         nvar;
         x0=x0,
