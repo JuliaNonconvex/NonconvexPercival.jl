@@ -1,5 +1,12 @@
 # NEWS
 
+## 0.3.8
+
+- JuMP-converted models get exact derivatives by default: the `jump` backend
+  path passes the shared `JuMPEvaluator` through to NonconvexCore's
+  ADNLPModels extension, whose backends read the Jacobian and the Lagrangian
+  Hessian straight from the MOI evaluator (Float64-safe). No local AD code.
+
 ## 0.3.7
 
 - The AD backends now come from NonconvexCore's ADNLPModels compatibility
