@@ -1,4 +1,4 @@
-name = "Percival"
+name = "NonconvexPercival"
 modules = ["NonconvexPercival"]
 doctest_setup = "using NonconvexPercival"
 

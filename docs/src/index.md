@@ -1,4 +1,4 @@
-# Augmented Lagrangian algorithm in pure Julia
+# NonconvexPercival
 
 ![JuliaNonconvex logo](https://raw.githubusercontent.com/JuliaNonconvex/NonconvexPercival.jl/master/docs/src/assets/logo.png)
 
