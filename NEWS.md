@@ -1,5 +1,8 @@
 # NEWS
 
+## 0.3.9
+
+- Docs: package-name section titles and left-aligned logos (no code changes).
 ## 0.3.8
 
 - JuMP-converted models get exact derivatives by default: the `jump` backend
