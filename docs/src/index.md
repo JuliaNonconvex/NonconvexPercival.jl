@@ -1,4 +1,4 @@
-# Augmented Lagrangian algorithm in pure Julia
+# NonconvexPercival
 
 ```@raw html
 <p align="center">
